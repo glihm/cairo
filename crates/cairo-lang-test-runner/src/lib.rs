@@ -14,7 +14,7 @@ use cairo_lang_filesystem::cfg::{Cfg, CfgSet};
 use cairo_lang_filesystem::ids::CrateId;
 use cairo_lang_lowering::ids::ConcreteFunctionWithBodyId;
 use cairo_lang_runner::short_string::as_cairo_short_string;
-use cairo_lang_runner::{RunResultValue, SierraCasmRunner};
+use cairo_lang_runner::{RunResultValue, SierraCasmRunner, StarknetState};
 use cairo_lang_semantic::db::SemanticGroup;
 use cairo_lang_semantic::items::functions::GenericFunctionId;
 use cairo_lang_semantic::{ConcreteFunction, FunctionLongId};
@@ -32,6 +32,8 @@ use cairo_lang_starknet::plugin::StarkNetPlugin;
 use cairo_lang_utils::ordered_hash_map::OrderedHashMap;
 use colored::Colorize;
 use itertools::{chain, Itertools};
+use num_bigint::BigUint;
+use num_traits::FromPrimitive;
 use plugin::TestPlugin;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use test_config::{try_extract_test_config, TestConfig};
@@ -253,12 +255,33 @@ fn run_tests(
             if test.ignored {
                 return Ok((name, TestStatus::Ignore));
             }
+
+            // let class_bigint = BigUint::parse_bytes(b"00ad6cc17dd137f989de14f8c392ddc55771d4a1a8d71e17d988bfed82363482", 16)
+            //     .expect("Failed to parse BigInt from hexadecimal string");
+            let decstr = "421690707243536024342474584926319647384781350305039429325249735479273902666";
+            let class_bigint = BigUint::parse_bytes(decstr.as_bytes(), 10).expect("Failed to parse BigUint from dec string");
+
+            let mut state: StarknetState = Default::default();
+            state.contract_address_set(Felt252::from(1234), Felt252::from(class_bigint.clone()));
+            state.contract_address_set(Felt252::from(9999), Felt252::from(class_bigint.clone()));
+            state.contract_address_set(Felt252::from(7777), Felt252::from(class_bigint));
+
+            let decstr2 = "1003837387406405617301517508161048663982325324249174258271505239948411789646";
+            let class_bigint2 = BigUint::parse_bytes(decstr2.as_bytes(), 10).expect("Failed to parse BigUint from dec string");
+
+            state.contract_address_set(Felt252::from(22222), Felt252::from(class_bigint2));
+
+
+            // 306415147331924649641382948351438425844579116692670803387368819203989976194
+            //0x00ad6cc17dd137f989de14f8c392ddc55771d4a1a8d71e17d988bfed82363482
+
             let result = runner
                 .run_function(
                     runner.find_function(name.as_str())?,
                     &[],
                     test.available_gas,
-                    Default::default(),
+                    // HERE WE WANT SOME ADDRESS MAPPING...!
+                    state,
                 )
                 .with_context(|| format!("Failed to run the function `{}`.", name.as_str()))?;
             Ok((

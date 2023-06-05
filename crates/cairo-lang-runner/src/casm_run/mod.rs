@@ -134,7 +134,12 @@ pub struct StarknetState {
 impl StarknetState {
     pub fn get_next_id(&mut self) -> Felt252 {
         self.next_id += Felt252::from(1);
+        println!("NEXT ID {:?}", self.next_id);
         self.next_id.clone()
+    }
+
+    pub fn contract_address_set(&mut self, address: Felt252, class_hash: Felt252) {
+        self.deployed_contracts.insert(address, class_hash);
     }
 }
 
@@ -583,15 +588,24 @@ impl HintProcessor for CairoHintProcessor<'_> {
                         let ptr = get_ptr(vm, cell, &(base_offset.clone() + 5u32))?;
                         let calldata_end_ptr = vm.get_relocatable(ptr)?;
 
+                        // Prepare runner for running the ctor.
+                        let runner = self.runner.expect("Runner is needed for starknet.");
+
+                        println!("CONTRACTS INFOS!");
+                        for (class_hash, info) in &runner.starknet_contracts_info {
+                            println!("class_hash: {:?}, contract_info: {:?}", class_hash, info);
+                        }
+
+                        println!("ADDR TEST: {:?}", &contract_address);
+
                         // Get the class hash of the contract.
                         let Some(class_hash) =
                             self.starknet_state.deployed_contracts.get(&contract_address) else
                         {
+                            println!("ADDR: {:?}", &contract_address);
                             fail_syscall!(b"CONTRACT_NOT_DEPLOYED");
                         };
 
-                        // Prepare runner for running the ctor.
-                        let runner = self.runner.expect("Runner is needed for starknet.");
                         let contract_info = runner
                             .starknet_contracts_info
                             .get(class_hash)
