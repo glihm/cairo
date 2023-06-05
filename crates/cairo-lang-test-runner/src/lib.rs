@@ -258,7 +258,8 @@ fn run_tests(
 
             // let class_bigint = BigUint::parse_bytes(b"00ad6cc17dd137f989de14f8c392ddc55771d4a1a8d71e17d988bfed82363482", 16)
             //     .expect("Failed to parse BigInt from hexadecimal string");
-            let decstr = "421690707243536024342474584926319647384781350305039429325249735479273902666";
+            let decstr = "770071401021666746834791356983936410021331743806485050086878493629854550123";
+
             let class_bigint = BigUint::parse_bytes(decstr.as_bytes(), 10).expect("Failed to parse BigUint from dec string");
 
             let mut state: StarknetState = Default::default();
@@ -266,11 +267,10 @@ fn run_tests(
             state.contract_address_set(Felt252::from(9999), Felt252::from(class_bigint.clone()));
             state.contract_address_set(Felt252::from(7777), Felt252::from(class_bigint));
 
-            let decstr2 = "1003837387406405617301517508161048663982325324249174258271505239948411789646";
+            let decstr2 = "302245506817220158641529690870150834155900580011622476915852381801018737329";
             let class_bigint2 = BigUint::parse_bytes(decstr2.as_bytes(), 10).expect("Failed to parse BigUint from dec string");
 
             state.contract_address_set(Felt252::from(22222), Felt252::from(class_bigint2));
-
 
             // 306415147331924649641382948351438425844579116692670803387368819203989976194
             //0x00ad6cc17dd137f989de14f8c392ddc55771d4a1a8d71e17d988bfed82363482
