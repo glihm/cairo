@@ -1,5 +1,7 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::fs::File;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use anyhow::{bail, Context, Result};
@@ -33,9 +35,9 @@ use cairo_lang_utils::ordered_hash_map::OrderedHashMap;
 use colored::Colorize;
 use itertools::{chain, Itertools};
 use num_bigint::BigUint;
-use num_traits::FromPrimitive;
 use plugin::TestPlugin;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+
 use test_config::{try_extract_test_config, TestConfig};
 
 use crate::test_config::{PanicExpectation, TestExpectation};
@@ -50,6 +52,7 @@ pub struct TestRunner {
     pub include_ignored: bool,
     pub ignored: bool,
     pub starknet: bool,
+    pub mocked_addresses: HashMap<String, String>,
 }
 
 impl TestRunner {
@@ -84,6 +87,8 @@ impl TestRunner {
 
         let main_crate_ids = setup_project(db, Path::new(&path))?;
 
+        let mocked_addresses = mocked_addresses_parse(&PathBuf::from(path))?;
+
         if DiagnosticsReporter::stderr().check(db) {
             bail!("failed to compile: {}", path);
         }
@@ -95,6 +100,7 @@ impl TestRunner {
             include_ignored,
             ignored,
             starknet,
+            mocked_addresses
         })
     }
 
@@ -171,8 +177,9 @@ impl TestRunner {
           .collect_vec();
         let filtered_out = total_tests_count - named_tests.len();
         let contracts_info = get_contracts_info(db, self.main_crate_ids.clone(), &replacer)?;
+
         let TestsSummary { passed, failed, ignored, failed_run_results } =
-            run_tests(named_tests, sierra_program, function_set_costs, contracts_info)?;
+            run_tests(named_tests, sierra_program, function_set_costs, contracts_info, &self.mocked_addresses)?;
         if failed.is_empty() {
             println!(
                 "test result: {}. {} passed; {} failed; {} ignored; {filtered_out} filtered out;",
@@ -235,7 +242,20 @@ fn run_tests(
     sierra_program: cairo_lang_sierra::program::Program,
     function_set_costs: OrderedHashMap<FunctionId, OrderedHashMap<CostTokenType, i32>>,
     contracts_info: HashMap<Felt252, ContractInfo>,
+    mocked_addresses: &HashMap<String, String>,
 ) -> anyhow::Result<TestsSummary> {
+
+    // println!("CONTRACTS INFOS!\n");
+    // for (class_hash, info) in &contracts_info {
+    //     println!("class_hash: {:?}, contract_info: {:?}", class_hash, info);
+    // }
+
+    // Build state from mocked addresses.
+    let starknet_state_mocked = starknet_state_from_mocked_addresses(
+        mocked_addresses,
+        &contracts_info
+    )?;
+
     let runner = SierraCasmRunner::new(
         sierra_program,
         Some(MetadataComputationConfig { function_set_costs }),
@@ -249,6 +269,7 @@ fn run_tests(
         ignored: vec![],
         failed_run_results: vec![],
     }));
+
     named_tests
         .into_par_iter()
         .map(|(name, test)| -> anyhow::Result<(String, TestStatus)> {
@@ -256,32 +277,12 @@ fn run_tests(
                 return Ok((name, TestStatus::Ignore));
             }
 
-            // let class_bigint = BigUint::parse_bytes(b"00ad6cc17dd137f989de14f8c392ddc55771d4a1a8d71e17d988bfed82363482", 16)
-            //     .expect("Failed to parse BigInt from hexadecimal string");
-            let decstr = "770071401021666746834791356983936410021331743806485050086878493629854550123";
-
-            let class_bigint = BigUint::parse_bytes(decstr.as_bytes(), 10).expect("Failed to parse BigUint from dec string");
-
-            let mut state: StarknetState = Default::default();
-            state.contract_address_set(Felt252::from(1234), Felt252::from(class_bigint.clone()));
-            state.contract_address_set(Felt252::from(9999), Felt252::from(class_bigint.clone()));
-            state.contract_address_set(Felt252::from(7777), Felt252::from(class_bigint));
-
-            let decstr2 = "302245506817220158641529690870150834155900580011622476915852381801018737329";
-            let class_bigint2 = BigUint::parse_bytes(decstr2.as_bytes(), 10).expect("Failed to parse BigUint from dec string");
-
-            state.contract_address_set(Felt252::from(22222), Felt252::from(class_bigint2));
-
-            // 306415147331924649641382948351438425844579116692670803387368819203989976194
-            //0x00ad6cc17dd137f989de14f8c392ddc55771d4a1a8d71e17d988bfed82363482
-
             let result = runner
                 .run_function(
                     runner.find_function(name.as_str())?,
                     &[],
                     test.available_gas,
-                    // HERE WE WANT SOME ADDRESS MAPPING...!
-                    state,
+                    starknet_state_mocked.clone(),
                 )
                 .with_context(|| format!("Failed to run the function `{}`.", name.as_str()))?;
             Ok((
@@ -352,4 +353,88 @@ fn find_all_tests(
         }
     }
     tests
+}
+
+/// Gets a contract name from it's info.
+/// Considering that a contract always have at least one external
+/// or one constructor.
+fn contract_name_from_info(
+    info: &ContractInfo,
+) -> Option<&str> {
+    match &info.constructor {
+        Some(func_id) => {
+            if let Some(debug_name) = &func_id.debug_name {
+                let frags: Vec<&str> = debug_name.split("::").collect();
+                Some(frags[frags.len() - 3])
+            } else {
+                None
+            }
+        },
+        None => {
+            if let Some(ext) = &info.externals.values().next() {
+                if let Some(debug_name) = &ext.debug_name {
+                    let frags: Vec<&str> = debug_name.split("::").collect();
+                    Some(frags[frags.len() - 3])
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+    }
+}
+
+/// Builds a mocked StarknetState from mocked addresses.
+fn starknet_state_from_mocked_addresses(
+    mocked_addresses: &HashMap<String, String>,
+    contracts_info: &HashMap<Felt252, ContractInfo>,
+) -> anyhow::Result<StarknetState> {
+
+    let mut state: StarknetState = Default::default();
+
+    for (class_hash, info) in contracts_info {
+        if let Some(contract_name) = contract_name_from_info(&info) {
+            if let Some(mocked_addr_decstr) = mocked_addresses.get(contract_name) {
+                let u = BigUint::parse_bytes(mocked_addr_decstr.as_bytes(), 10)
+                    .expect("Failed to parse BigUint from dec string.");
+
+                println!("Mocked address: {} for {} (class_hash: {})",
+                         mocked_addr_decstr,
+                         contract_name,
+                         class_hash);
+
+                state.contract_address_set(Felt252::from(u), class_hash.clone());
+            }
+        }
+    }
+
+    Ok(state.clone())
+}
+
+/// Parses mocked contract address
+/// from mapping file.
+fn mocked_addresses_parse(
+    path: &PathBuf,
+) -> anyhow::Result<HashMap<String, String>> {
+    let path = path.join(".addrs_mock.json");
+    let mut file = match File::open(path.clone()) {
+        Ok(f) => f,
+        Err(_) => {
+            println!("No contract address to be mocked, skip.");
+            println!("If it's not intentional, add '.addrs_mock.json' file.\n");
+            return Ok(Default::default());
+        }
+    };
+
+    let mut json = String::new();
+    let content: HashMap<String, String> = match file.read_to_string(&mut json) {
+        Ok(_) => match serde_json::from_str(&json) {
+            Ok(c) => c,
+            Err(_) => anyhow::bail!("Mocked addressess file is not in the expected format.")
+        },
+        Err(_) => anyhow::bail!("Mocked addresses file is not readable.")
+    };
+
+    Ok(content)
 }

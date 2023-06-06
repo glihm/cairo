@@ -35,6 +35,7 @@ num-traits.workspace = true
 rayon.workspace = true
 salsa.workspace = true
 thiserror.workspace = true
+serde_json = { version = "1.0.96", features = ["preserve_order"] }
 
 [[bin]]
 name = "cairo-test"
