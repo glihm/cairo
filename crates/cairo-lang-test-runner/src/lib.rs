@@ -42,6 +42,10 @@ use test_config::{try_extract_test_config, TestConfig};
 
 use crate::test_config::{PanicExpectation, TestExpectation};
 
+use serde::Deserialize;
+use serde::Deserializer;
+use serde_json::Value;
+
 mod plugin;
 mod test_config;
 
@@ -52,7 +56,7 @@ pub struct TestRunner {
     pub include_ignored: bool,
     pub ignored: bool,
     pub starknet: bool,
-    pub mocked_addresses: HashMap<String, String>,
+    pub mocked_addresses: HashMap<String, MockConfig>,
 }
 
 impl TestRunner {
@@ -242,7 +246,7 @@ fn run_tests(
     sierra_program: cairo_lang_sierra::program::Program,
     function_set_costs: OrderedHashMap<FunctionId, OrderedHashMap<CostTokenType, i32>>,
     contracts_info: HashMap<Felt252, ContractInfo>,
-    mocked_addresses: &HashMap<String, String>,
+    mocked_addresses: &HashMap<String, MockConfig>,
 ) -> anyhow::Result<TestsSummary> {
 
     // println!("CONTRACTS INFOS!\n");
@@ -387,24 +391,37 @@ fn contract_name_from_info(
 
 /// Builds a mocked StarknetState from mocked addresses.
 fn starknet_state_from_mocked_addresses(
-    mocked_addresses: &HashMap<String, String>,
+    mocked_addresses: &HashMap<String, MockConfig>,
     contracts_info: &HashMap<Felt252, ContractInfo>,
 ) -> anyhow::Result<StarknetState> {
 
     let mut state: StarknetState = Default::default();
 
     for (class_hash, info) in contracts_info {
-        if let Some(contract_name) = contract_name_from_info(&info) {
-            if let Some(mocked_addr_decstr) = mocked_addresses.get(contract_name) {
-                let u = BigUint::parse_bytes(mocked_addr_decstr.as_bytes(), 10)
-                    .expect("Failed to parse BigUint from dec string.");
+        if let Some(contract_name) = contract_name_from_info(info) {
+            if let Some(mocked_addr) = mocked_addresses.get(contract_name) {
 
-                println!("Mocked address: {} for {} (class_hash: {})",
-                         mocked_addr_decstr,
-                         contract_name,
-                         class_hash);
+                match mocked_addr {
+                    MockConfig::SingletonAddress(address) => {
+                        println!("Mocked address: {} for {} (class_hash: {})",
+                                 address,
+                                 contract_name,
+                                 class_hash);
 
-                state.contract_address_set(Felt252::from(u), class_hash.clone());
+                        state.contract_address_set(address_from_string(address), class_hash.clone());
+                    }
+                    MockConfig::InstanceAddresses(addresses) => {
+                        for (instance_name, address) in addresses {
+                            println!("Mocked address: {} for {} (class_hash: {}) [{}]",
+                                     address,
+                                     contract_name,
+                                     class_hash,
+                                     instance_name);
+
+                            state.contract_address_set(address_from_string(address), class_hash.clone());                            
+                        }
+                    }
+                }
             }
         }
     }
@@ -412,13 +429,60 @@ fn starknet_state_from_mocked_addresses(
     Ok(state.clone())
 }
 
+/// Converts an address string (dec or hex) into a Felt252.
+fn address_from_string(addr: &String) -> Felt252 {
+
+    let mut hex_or_dec_addr: String = addr.clone();
+    let mut radix: u32 = 10;
+    if addr.starts_with("0x") {
+        radix = 16;
+        hex_or_dec_addr = hex_or_dec_addr.strip_prefix("0x").unwrap_or(addr).to_string();
+    }
+
+    let u = BigUint::parse_bytes(hex_or_dec_addr.as_bytes(), radix)
+        .unwrap_or_else(|| panic!("Failed to parse BigUint from string '{}' with radix {}.", addr, radix));
+
+    Felt252::from(u)
+}
+
+#[derive(Debug)]
+pub enum MockConfig {
+    SingletonAddress(String),
+    InstanceAddresses(HashMap<String, String>),
+}
+
+impl<'de> Deserialize<'de> for MockConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value: Value = Deserialize::deserialize(deserializer)?;
+
+        match value {
+            Value::String(address) => Ok(MockConfig::SingletonAddress(address)),
+            Value::Object(addresses) => {
+                let map = addresses
+                    .into_iter()
+                    .map(|(k, v)| match v {
+                        Value::String(value) => Ok((k, value)),
+                        _ => Err(serde::de::Error::custom("Invalid value in InstanceAddresses")),
+                    })
+                    .collect::<Result<HashMap<String, String>, _>>()?;
+
+                Ok(MockConfig::InstanceAddresses(map))
+            }
+            _ => Err(serde::de::Error::custom("Invalid MockConfig value")),
+        }
+    }
+}
+
 /// Parses mocked contract address
 /// from mapping file.
 fn mocked_addresses_parse(
-    path: &PathBuf,
-) -> anyhow::Result<HashMap<String, String>> {
+    path: &Path,
+) -> anyhow::Result<HashMap<String, MockConfig>> {
     let path = path.join(".addrs_mock.json");
-    let mut file = match File::open(path.clone()) {
+    let mut file = match File::open(path) {
         Ok(f) => f,
         Err(_) => {
             println!("No contract address to be mocked, skip.");
@@ -428,10 +492,13 @@ fn mocked_addresses_parse(
     };
 
     let mut json = String::new();
-    let content: HashMap<String, String> = match file.read_to_string(&mut json) {
+    let content: HashMap<String, MockConfig> = match file.read_to_string(&mut json) {
         Ok(_) => match serde_json::from_str(&json) {
             Ok(c) => c,
-            Err(_) => anyhow::bail!("Mocked addressess file is not in the expected format.")
+            Err(e) => {
+                println!("{:?}", e);
+                anyhow::bail!("Mocked addressess file is not in the expected format.")
+            }
         },
         Err(_) => anyhow::bail!("Mocked addresses file is not readable.")
     };
