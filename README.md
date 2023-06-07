@@ -92,6 +92,8 @@ The docker tag is always the cairo-compile version (`1.1.0` in this example), wi
 Also, the docker container will always run `cairo-test` with `--starknet` plugin. So you just have to pass the `path`, which
 in the case of the example, is the volume mounted to the `cairo_project` root path into `/project` in the container.
 
+To compile locally, use `cargo build --package cairo-lang-test-runner --release`
+
 ## Starknet contracts dichotomy
 
 Starknet divides contract data in two:
