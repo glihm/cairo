@@ -86,7 +86,7 @@ Example of `Scarb.toml` file using the [docker image from docker hub](https://hu
 
 ```toml
 [scripts]
-test-caironet = "sudo docker run --rm -v $(pwd):/project glihm/caironet:1.1.0-a /project/"
+test-caironet = "sudo docker run --rm -v $(pwd):/project --entrypoint cairo-test glihm/caironet:1.1.0-a --starknet /project/"
 ```
 The docker tag is always the cairo-compile version (`1.1.0` in this example), with an incremental version of `caironet` (`a` in this example).
 Also, the docker container will always run `cairo-test` with `--starknet` plugin. So you just have to pass the `path`, which
