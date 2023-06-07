@@ -481,12 +481,12 @@ impl<'de> Deserialize<'de> for MockConfig {
 fn mocked_addresses_parse(
     path: &Path,
 ) -> anyhow::Result<HashMap<String, MockConfig>> {
-    let path = path.join(".addrs_mock.json");
+    let path = path.join(".caironet.json");
     let mut file = match File::open(path) {
         Ok(f) => f,
         Err(_) => {
-            println!("No contract address to be mocked, skip.");
-            println!("If it's not intentional, add '.addrs_mock.json' file.\n");
+            println!("No contract address to be mocked as .caironet.json file was not found.");
+            println!("Please check the README for the configuration.\n");
             return Ok(Default::default());
         }
     };

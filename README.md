@@ -1,147 +1,107 @@
-<div align="center">
-  <h1>Cairo 🐺 </h1>
-  <h2> ⚡ Blazing ⚡ fast ⚡ compiler for Cairo, written in 🦀 Rust 🦀 </h2>
-  <img src="./resources/img/cairo-logo-square.png" height="200" width="200">
-  <br />
-  <a href="https://github.com/starkware-libs/cairo/issues/new?assignees=&labels=bug&template=01_BUG_REPORT.md&title=bug%3A+">Report a Bug</a>
-  -
-  <a href="https://github.com/starkware-libs/cairo/issues/new?assignees=&labels=enhancement&template=02_FEATURE_REQUEST.md&title=feat%3A+">Request a Feature</a>
-  -
-  <a href="https://github.com/starkware-libs/cairo/discussions">Ask a Question</a>
-</div>
+# caironet
+Cairo test runner with contract address mocking.
 
-<div align="center">
-<br />
+## Motivation
 
-[![GitHub Workflow Status](https://github.com/starkware-libs/cairo/actions/workflows/ci.yml/badge.svg)](https://github.com/starkware-libs/cairo/actions/workflows/ci.yml)
-[![Project license](https://img.shields.io/github/license/starkware-libs/cairo.svg?style=flat-square)](LICENSE)
-[![Pull Requests welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/starkware-libs/cairo/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
+Testing cairo contract must be simple, including contract interactions
+when a contract can `call` an other contract.
 
-</div>
+`caironet` aims at being very simple and so thin, that it's easy
+and quick get started with cairo contracts testing mocking the deployment.
 
-<details open="open">
-<summary>Table of Contents</summary>
+A simple, flexible `.caironet.json` file to mock the addresses.
 
-- [About](#about)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Compiling and running Cairo files](#compiling-and-running-cairo-files)
-  - [Development](#development)
-    - [Install the language server](#install-the-language-server)
-- [Roadmap](#roadmap)
-- [Support](#support)
-- [Project assistance](#project-assistance)
-- [Contributing](#contributing)
-- [Authors \& contributors](#authors--contributors)
-- [Security](#security)
-- [License](#license)
+## What caironet is
 
-</details>
+It's a fork from [Starkware cairo repo](https://github.com/starkware-libs/cairo),
+having a little modification on the test runner to have the `cairo-test`
+being able to honor a `call` between contrats.
 
----
+Running caironet produces the same testing feature as `cairo-test`, and the
+modified code is only altering the `StarknetState` to mock deployed contracts.
 
-## About
+Indeed, in the test running, "deploying" a contract can be seen as "registering
+a mapping between a contract address and it's class hash".
 
-Cairo is the first Turing-complete language for creating provable programs for general computation.
+It's not a devnet.  
+It's not a testnet.  
 
-## Getting Started
+Caironet was developped in my journey of Starknet exploration and understanding.
+Amazing devs in the ecosystem (for example Software mansion with protostar) are proposing more advanced tooling.
 
-### Prerequisites
+Finally, `caironet` makes sense only if `cairo-test` is used
+with `--starknet` plugin, as it's for testing Starknet contracts.
 
-- Install [Rust](https://www.rust-lang.org/tools/install)
-- Setup Rust:
-```bash
-rustup override set stable && rustup update
+## How to use and examples
+
+You can find a complete working example in the `tests/caironet` directory.
+The examples are commented with detailed explanations.
+
+For the `.caironet.json` file, it must be placed at the root of the `cairo project`.
+The configuration is a simple `JSON` with only strings.
+
+The most important requirement is that, the first level keys are always the
+exact name of your contracts. The case MUST be respected.
+
+For example, in the `test/caironet` directory, you can find `Contract1` and `Contract2`
+contracts (which are cairo modules).
+
+If you need several addresses for the same contract (which is usually the case
+for instance when using ERC721 and ERC20), you can use the same structure as
+shown below for `Contract1`. Here, `JOHN` and `DOE` are label for the instances
+of the contracts, which does not correspond to anything in the code, so the text
+is totally up to you.
+
+The `JSON` specification is not supporting trailing commas, so be careful
+to not forget them, the configuration file will not be parseable.
+
+The addresses are strings, and both decimal and hexadecimal strings are supported.
+Hexadecimal string **MUST BE PREFIXED** with `0x`.
+
+```json
+{
+    "Contract1": {
+        "JOHN": "1010",
+        "DOE": "0x1234"
+    },
+    "Contract2": "99",
+    "ContractName": {
+        "Instance1": "0x1111"
+    }
+}
+
 ```
 
-Ensure rust was installed correctly by running the following from the root project directory:
-```bash
-cargo test
-```
+## Starknet contracts dichotomy
 
-### Compiling and running Cairo files
+Starknet divides contract data in two:
+* Contract class: which is the code associated with a contract and related ABI.
+* Contract instance: a mapping of contract address, to a class hash identifying the contract class and a "state" (including the storage among other).
 
-Compile Cairo to Sierra:
-```bash
-cargo run --bin cairo-compile -- /path/to/input.cairo /path/to/output.sierra --replace-ids
-```
+In this context, the contract class can be seen as a static piece of code, ready to be executed.
+The contract instance can be seen as a dedicated space with a storage. So anytime we call a contract:
 
-Compile Sierra to casm (Cairo assembly):
-```bash
-cargo run --bin sierra-compile -- /path/to/input.sierra /path/to/output.casm
-```
+1. The address is used to know which underlying storage the runner should use.
+2. The class hash is used to know which code to execute. In the case of testing,
+we never user the class hash explicitely, we call the corresponding module explicitely.
 
-Run Cairo code directly:
-```bash
-cargo run --bin cairo-run -- /path/to/file.cairo
-```
+## Caironet considerations
 
-See more information [here](./crates/cairo-lang-runner/README.md). You can also find Cairo examples in the [examples](./examples) directory.
+This tool depends on the cairo compiler at https://github.com/starkware-libs/cairo.
+It will follow the stable releases of the starkware repo.
 
-For running tests specifically, see here: [cairo-test](./crates/cairo-lang-test-runner/README.md)
+Under the hood, caironet is using the exact same code as `cairo-test` command,
+modified to support a populated `StarknetState` before the execution.
 
-### Compiling Starknet Contracts
+It's important to note that, every test runs in a different instance of the test runner.
+Which means any storage value is reseted at each test.
 
-Compile a Starknet Contract to a Sierra ContractClass:
-```bash
-cargo run --bin starknet-compile -- /path/to/input.cairo /path/to/output.json
-```
+Finally, `caironet` was designed this way because populating the `StarknetState` by calling
+`deploy_syscall` is more complex from the cairo code.
 
-Or specify the contract path if multiple contracts are defined in the same project:
-```bash
-cargo run --bin starknet-compile -- /path/to/input/crate /path/to/output.json --contract-path path::to::contract
-```
+The focus of `caironet` is to keep testing simple, with no changes compared
+to the original `cairo-lang` testing features for the `starknet` plugin found [here](https://github.com/starkware-libs/cairo/blob/c4dcdf689840313e27f6305ba89d489169a68348/corelib/src/starknet/testing.cairo).
 
-Compile the ContractClass of a CompiledClass:
-```bash
-cargo run --bin starknet-sierra-compile -- /path/to/input.json /path/to/output.casm
-```
+## Disclaimer
 
-### Development
-
-#### Install the language server
-
-Follow the instructions in [vscode-cairo](./vscode-cairo/README.md).
-
-## Roadmap
-
-The next milestone is to reach feature parity with the old Cairo version.
-You can track the exact progress [here](./docs/FEATURE_PARITY.md).
-
-## Support
-
-- We encourage developers to ask and answer questions on [stackoverflow](https://stackoverflow.com/questions/tagged/cairo-lang).
-- Contact options listed on [this GitHub profile](https://github.com/starkware-libs)
-
-## Project assistance
-
-If you want to say **thank you** or/and support active development of Cairo:
-
-- Add a [GitHub Star](https://github.com/starkware-libs/cairo) to the project.
-- Tweet about your Cairo work.
-- Write interesting articles about the project on [Dev.to](https://dev.to/), [Medium](https://medium.com/) or your personal blog.
-
-Together, we can make Cairo **better**!
-
-## Contributing
-
-First off, thanks for taking the time to contribute! Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make will benefit everybody else and are **greatly appreciated**.
-
-Please read [our contribution guidelines](docs/CONTRIBUTING.md), and thank you for being involved!
-
-## Authors & contributors
-
-For a full list of all authors and contributors, see [the contributors page](https://github.com/starkware-libs/cairo/contributors).
-
-## Security
-
-Cairo follows good practices of security, but 100% security cannot be assured.
-Cairo is provided **"as is"** without any **warranty**. Use at your own risk.
-
-_For more information and to report security issues, please refer to our [security documentation](docs/SECURITY.md)._
-
-## License
-
-This project is licensed under the **Apache 2.0**.
-
-See [LICENSE](LICENSE) for more information.
+Caironet is provided **as is**, and it still experimental. Use at your own risks.
