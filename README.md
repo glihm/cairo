@@ -94,6 +94,11 @@ in the case of the example, is the volume mounted to the `cairo_project` root pa
 
 To compile locally, use `cargo build --package cairo-lang-test-runner --release`
 
+```toml
+[scripts]
+test-caironet = "/path/caironet/target/release/cairo-test --starknet ."
+```
+
 ## Starknet contracts dichotomy
 
 Starknet divides contract data in two:
