@@ -72,6 +72,13 @@ Mocked address: 1010 for Contract1 [JOHN] (class_hash: 1674043218147484320489166
 You can find a complete working example in the `tests/caironet` directory [here](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet/tests/test_1.cairo).  
 The examples are commented with detailed explanations.
 
+To test them:
+
+```bash
+cd tests/caironet
+scarb build test-caironet
+```
+
 One of two most important functions when testing a contract are:
 1. [set_caller_address](https://github.com/starkware-libs/cairo/blob/c4dcdf689840313e27f6305ba89d489169a68348/corelib/src/starknet/testing.cairo#L3), which mocks the
 address returned by `get_caller_address` in our contracts.
