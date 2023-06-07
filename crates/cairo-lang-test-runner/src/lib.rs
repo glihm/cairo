@@ -415,8 +415,8 @@ fn starknet_state_from_mocked_addresses(
                             println!("Mocked address: {} for {} [{}] (class_hash: {})",
                                      address,
                                      contract_name,
-                                     class_hash,
-                                     instance_name);
+                                     instance_name,
+                                     class_hash);
 
                             state.contract_address_set(address_from_string(address), class_hash.clone());                            
                         }
