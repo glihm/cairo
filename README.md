@@ -60,6 +60,13 @@ to not forget them, the configuration file will not be parseable.
 The addresses are strings, and both decimal and hexadecimal strings are supported.
 Hexadecimal string **MUST BE PREFIXED** with `0x`.
 
+When the runner starts, it will output the mocked addresses and corresponding class hashes:
+
+```
+Mocked address: 0x1234 for Contract1 [DOE] (class_hash: 1674043218147484320489166460321444344881925232388472483217999049795709544553)
+Mocked address: 1010 for Contract1 [JOHN] (class_hash: 1674043218147484320489166460321444344881925232388472483217999049795709544553)
+```
+
 ## Examples
 
 You can find a complete working example in the `tests/caironet` directory [here](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet/tests/test_1.cairo).  
