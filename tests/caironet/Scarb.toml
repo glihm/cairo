@@ -1,0 +1,11 @@
+[package]
+name = "caironet"
+version = "0.1.0"
+
+[dependencies]
+starknet = ">=1.1.0"
+
+[scripts]
+test-caironet = "sudo docker run --rm -v $(pwd):/work --entrypoint cairo-test glihm/cairo:1.1.0 --starknet /work/"
+
+[[target.starknet-contract]]
