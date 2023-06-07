@@ -412,7 +412,7 @@ fn starknet_state_from_mocked_addresses(
                     }
                     MockConfig::InstanceAddresses(addresses) => {
                         for (instance_name, address) in addresses {
-                            println!("Mocked address: {} for {} (class_hash: {}) [{}]",
+                            println!("Mocked address: {} for {} [{}] (class_hash: {})",
                                      address,
                                      contract_name,
                                      class_hash,
