@@ -4,53 +4,55 @@ Cairo test runner with contract address mocking.
 ## Motivation
 
 Testing cairo contract must be simple, including contract interactions
-when a contract can `call` an other contract.
+when a contract can `call` an other contract. This is crucial for
+effective development of starknet contracts written in cairo.
 
 `caironet` aims at being very simple and so thin, that it's easy
 and quick get started with cairo contracts testing mocking the deployment.
-
-A simple, flexible `.caironet.json` file to mock the addresses.
 
 ## What caironet is
 
 It's a fork from [Starkware cairo repo](https://github.com/starkware-libs/cairo),
 having a little modification on the test runner to have the `cairo-test`
-being able to honor a `call` between contrats.
-
-Running caironet produces the same testing feature as `cairo-test`, and the
-modified code is only altering the `StarknetState` to mock deployed contracts.
-
-Indeed, in the test running, "deploying" a contract can be seen as "registering
-a mapping between a contract address and it's class hash".
+being able to honor a `call` between contracts mocking their addresses.
 
 It's not a devnet.  
 It's not a testnet.  
 
-Caironet was developped in my journey of Starknet exploration and understanding.
+`caironet` was developped in my journey of Starknet exploration and understanding.
 Amazing devs in the ecosystem (for example Software mansion with protostar) are proposing more advanced tooling.
 
-Finally, `caironet` makes sense only if `cairo-test` is used
-with `--starknet` plugin, as it's for testing Starknet contracts.
+But as the time of this writting, those tools are still under active development and I was looking
+for a way to easily do integration testing without setup that is not into `cairo-test`.
 
-## How to use and examples
+## Configuration
 
-You can find a complete working example in the `tests/caironet` directory.
-The examples are commented with detailed explanations.
+The configuration is a simple `JSON` file named `.caironet.json`.  
+This file contains the mocked addresses and must be placed at the root of the `cairo/scarb project`.
 
-For the `.caironet.json` file, it must be placed at the root of the `cairo project`.
-The configuration is a simple `JSON` with only strings.
+Example:
+```json
+{
+    "Contract1": {
+        "JOHN": "1010",
+        "DOE": "0x1234"
+    },
+    "Contract2": "99"
+}
+
+```
 
 The most important requirement is that, the first level keys are always the
-exact name of your contracts. The case MUST be respected.
+exact name of your contracts. The case **MUST** be respected.
 
-For example, in the `test/caironet` directory, you can find `Contract1` and `Contract2`
-contracts (which are cairo modules).
+For example, in the `test/caironet/src` directory, you can find `Contract1` and `Contract2`
+contracts with this exact case.
 
-If you need several addresses for the same contract (which is usually the case
+If you need several addresses for the same contract class (which is usually the case
 for instance when using ERC721 and ERC20), you can use the same structure as
-shown below for `Contract1`. Here, `JOHN` and `DOE` are label for the instances
-of the contracts, which does not correspond to anything in the code, so the text
-is totally up to you.
+shown in the example for `Contract1`. Here, `JOHN` and `DOE` are labels for the instances
+of the contract, which does not correspond to anything in the code, so the text
+is totally free and up to you.
 
 The `JSON` specification is not supporting trailing commas, so be careful
 to not forget them, the configuration file will not be parseable.
@@ -58,19 +60,37 @@ to not forget them, the configuration file will not be parseable.
 The addresses are strings, and both decimal and hexadecimal strings are supported.
 Hexadecimal string **MUST BE PREFIXED** with `0x`.
 
-```json
-{
-    "Contract1": {
-        "JOHN": "1010",
-        "DOE": "0x1234"
-    },
-    "Contract2": "99",
-    "ContractName": {
-        "Instance1": "0x1111"
-    }
-}
+## Examples
 
+You can find a complete working example in the `tests/caironet` directory [here](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet/tests/test_1.cairo).  
+The examples are commented with detailed explanations.
+
+One of two most important functions when testing a contract are:
+1. [set_caller_address](https://github.com/starkware-libs/cairo/blob/c4dcdf689840313e27f6305ba89d489169a68348/corelib/src/starknet/testing.cairo#L3), which mocks the
+address returned by `get_caller_address` in our contracts.
+2. [set_contract_address](https://github.com/starkware-libs/cairo/blob/c4dcdf689840313e27f6305ba89d489169a68348/corelib/src/starknet/testing.cairo#L4), which mocks the
+contract address used during the execution to lookup the storage (among other).
+
+So, using `set_contract_address` in a test will indicate to the test runner at which address it must lookup for storage values.
+
+This is a very important part to understand to ensure you fully control the storage values associated with the contracts you want to test.
+
+Walkthrough detailed with examples [here](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet/tests/test_1.cairo#L22).
+
+## Test with caironet inside your Scarb project
+
+[Scarb](https://github.com/software-mansion/scarb) supports scripting.
+You can use the pre-built docker image or clone and compile the repository depending your need.
+
+Example of `Scarb.toml` file using the [docker image from docker hub](https://hub.docker.com/r/glihm/caironet/tags):
+
+```toml
+[scripts]
+test-caironet = "sudo docker run --rm -v $(pwd):/project glihm/caironet:1.1.0-a /project/"
 ```
+The docker tag is always the cairo-compile version (`1.1.0` in this example), with an incremental version of `caironet` (`a` in this example).
+Also, the docker container will always run `cairo-test` with `--starknet` plugin. So you just have to pass the `path`, which
+in the case of the example, is the volume mounted to the `cairo_project` root path into `/project` in the container.
 
 ## Starknet contracts dichotomy
 
@@ -83,7 +103,7 @@ The contract instance can be seen as a dedicated space with a storage. So anytim
 
 1. The address is used to know which underlying storage the runner should use.
 2. The class hash is used to know which code to execute. In the case of testing,
-we never user the class hash explicitely, we call the corresponding module explicitely.
+we never user the class hash explicitely, we call the corresponding cairo module explicitely (`Contract1::` for instance).
 
 ## Caironet considerations
 
@@ -104,4 +124,5 @@ to the original `cairo-lang` testing features for the `starknet` plugin found [h
 
 ## Disclaimer
 
-Caironet is provided **as is**, and it still experimental. Use at your own risks.
+Caironet is provided **as is**, and it still experimental.
+It is not subject to grow and have all the features tools like protostar is providing.
