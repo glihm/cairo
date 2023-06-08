@@ -23,7 +23,7 @@ It's not a testnet.
 Amazing devs in the ecosystem (for example Software mansion with protostar) are proposing more advanced tooling.
 
 But as the time of this writting, those tools are still under active development and I was looking
-for a way to easily do integration testing without setup that is not into `cairo-test`.
+for a way to easily do integration testing with only `cairo-test` features.
 
 ## Configuration
 
