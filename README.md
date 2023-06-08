@@ -22,7 +22,7 @@ It's not a devnet.
 It's not a testnet.  
 
 `caironet` was developped in my journey of Starknet exploration and understanding.
-Amazing devs in the ecosystem (for example Software mansion with protostar) are proposing more advanced tooling.
+Amazing devs in the ecosystem (for example Software mansion with protostar and SpaceShard with the starknet-devnet) are proposing more advanced tooling.
 
 But as the time of this writting, those tools are still under active development and I was looking
 for a way to easily do integration testing with only `cairo-test` features.
