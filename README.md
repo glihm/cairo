@@ -10,7 +10,7 @@ effective development of starknet contracts written in cairo.
 `caironet` aims at being very simple and so thin, that it's easy
 and quick to get started with cairo contracts testing mocking the deployment.
 
-Only add the configuration file and ise regular cairo testing features.
+Only add the configuration file and use regular cairo testing features.
 
 ## What caironet is
 
