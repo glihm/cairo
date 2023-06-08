@@ -8,7 +8,9 @@ when a contract can `call` an other contract. This is crucial for
 effective development of starknet contracts written in cairo.
 
 `caironet` aims at being very simple and so thin, that it's easy
-and quick get started with cairo contracts testing mocking the deployment.
+and quick to get started with cairo contracts testing mocking the deployment.
+
+Only add the configuration file and ise regular cairo testing features.
 
 ## What caironet is
 
@@ -72,7 +74,7 @@ Mocked address: 1010 for Contract1 [JOHN] (class_hash: 1674043218147484320489166
 You can find a complete working example in the `tests/caironet` directory [here](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet/tests/test_1.cairo).  
 The examples are commented with detailed explanations.
 
-To test them:
+To test run the tests of this repo:
 
 ```bash
 cd tests/caironet
@@ -89,7 +91,7 @@ So, using `set_contract_address` in a test will indicate to the test runner at w
 
 This is a very important part to understand to ensure you fully control the storage values associated with the contracts you want to test.
 
-Walkthrough detailed with examples [here](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet/tests/test_1.cairo#L22).
+Walkthrough detailed [here](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet/tests/test_1.cairo#L22).
 
 ## Test with caironet inside your Scarb project
 
@@ -100,11 +102,10 @@ Example of `Scarb.toml` file using the [docker image from docker hub](https://hu
 
 ```toml
 [scripts]
-test-caironet = "sudo docker run --rm -v $(pwd):/project --entrypoint cairo-test glihm/caironet:1.1.0-a --starknet /project/"
+test-caironet = "sudo docker run --rm -v $(pwd):/project -t --entrypoint cairo-test glihm/caironet:1.1.0-a --starknet /project/"
 ```
 The docker tag is always the cairo-compile version (`1.1.0` in this example), with an incremental version of `caironet` (`a` in this example).
-Also, the docker container will always run `cairo-test` with `--starknet` plugin. So you just have to pass the `path`, which
-in the case of the example, is the volume mounted to the `cairo_project` root path into `/project` in the container.
+Consider to always run `cairo-test` with `--starknet` plugin.
 
 To compile locally, use `cargo build --package cairo-lang-test-runner --release`
 
@@ -146,4 +147,4 @@ to the original `cairo-lang` testing features for the `starknet` plugin found [h
 ## Disclaimer
 
 Caironet is provided **as is**, and it still experimental.
-It is not subject to grow and have all the features tools like protostar is providing.
+It is not subject to grow neither to match all the features that the tools like protostar are providing.
