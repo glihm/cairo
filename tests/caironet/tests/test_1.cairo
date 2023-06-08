@@ -1,6 +1,7 @@
 use caironet::contract1::Contract1;
 use caironet::contract2::Contract2;
 use caironet::contract3::Contract3;
+use caironet::contract4::Contract4;
 
 use starknet::ContractAddress;
 use starknet::contract_address_const;
@@ -142,4 +143,38 @@ fn test_set_caller_address() {
     // This one will cause a panic, which is expected by the test.
     set_caller_address(DOE_ADDR);
     Contract3::call_me();
+}
+
+// Test the use of call_contract_syscall to
+// use some fallback in case that a selector does not exist.
+#[test]
+#[available_gas(2000000)]
+fn test_call_contract_syscall() {
+
+    let JOHN_ADDR: ContractAddress = contract_address_const::<1010>();
+    let DOE_ADDR: ContractAddress = contract_address_const::<0x1234>();
+    let C4_ADDR: ContractAddress = contract_address_const::<44>();
+
+    set_contract_address(JOHN_ADDR);
+    Contract1::constructor('JOHN', 200);
+    assert(Contract1::name_get() == 'JOHN', 'JOHN ctor name');
+    assert(Contract1::val_get() == 200, 'JOHN ctor val');
+
+    set_contract_address(DOE_ADDR);
+    Contract1::constructor('DOE', 10);
+    assert(Contract1::name_get() == 'DOE', 'DOE ctor name');
+    assert(Contract1::val_get() == 10, 'DOE ctor val');
+
+    set_contract_address(C4_ADDR);
+    // Contract4 has no custom constructor, so we don't need to call it.
+
+    // Modify some contract 1 values.
+    Contract4::val_set_syscall(JOHN_ADDR, 111);
+    Contract4::val_set_syscall(DOE_ADDR, 222);
+
+    set_contract_address(JOHN_ADDR);
+    assert(Contract1::val_get() == 111, 'JOHN val');
+
+    set_contract_address(DOE_ADDR);
+    assert(Contract1::val_get() == 222, 'DOE val');
 }
