@@ -78,7 +78,7 @@ To test run the tests of this repo:
 
 ```bash
 cd tests/caironet
-scarb build test-caironet
+scarb run test-caironet
 ```
 
 One of two most important functions when testing a contract are:
