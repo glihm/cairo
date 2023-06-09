@@ -5,7 +5,12 @@ version = "0.1.0"
 [dependencies]
 starknet = ">=1.1.0"
 
+# Use of TheArkProject fork as for the moment
+# https://github.com/OpenZeppelin/cairo-contracts/pull/628 PR
+# is not merged.
+openzeppelin = { git = "https://github.com/TheArkProjekt/openzeppelin.git" }
+
 [scripts]
-test-caironet = "sudo docker run --rm -v $(pwd):/project -t --entrypoint cairo-test glihm/caironet:1.1.0-a --starknet /project/"
+test-caironet = "sudo docker run --rm -v /home/glihm/.cache/scarb/registry/git/checkouts:/scarb -v $(pwd):/project -t --entrypoint cairo-test glihm/caironet:1.1.0-a --starknet /project/"
 
 [[target.starknet-contract]]
