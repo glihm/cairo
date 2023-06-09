@@ -33,4 +33,5 @@ tests = "tests"
 # So instead of --scarb, use --libs! (and this can be use for any additional project!)
 # Instead of changing the `cairo_project.toml` file!!!! (well, it's an alternative).
 # To be more flexible, we may have several paths separated with commas.
-openzeppelin = "/scarb/openzeppelin-3ptef6rrrel9s/cba9f2c/src"
+#openzeppelin = "/scarb/openzeppelin-3ptef6rrrel9s/cba9f2c/src"
+#openzeppelin = "/home/glihm/.cache/scarb/registry/git/checkouts/openzeppelin-3ptef6rrrel9s/cba9f2c/src"

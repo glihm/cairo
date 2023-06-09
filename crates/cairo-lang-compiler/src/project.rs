@@ -1,12 +1,15 @@
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::collections::HashMap;
 
 use cairo_lang_defs::ids::ModuleId;
 use cairo_lang_filesystem::db::FilesGroupEx;
 use cairo_lang_filesystem::ids::{CrateId, CrateLongId, Directory};
 pub use cairo_lang_project::*;
 use cairo_lang_semantic::db::SemanticGroup;
+
+use smol_str::SmolStr;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ProjectError {
@@ -81,6 +84,36 @@ pub fn setup_project(
         match ProjectConfig::from_directory(path) {
             Ok(config) => {
                 let main_crate_ids = get_main_crate_ids_from_project(db, &config);
+
+                
+
+                update_crate_roots_from_project_config(db, config);
+                Ok(main_crate_ids)
+            }
+            _ => Err(ProjectError::LoadProjectError),
+        }
+    } else {
+        Ok(vec![setup_single_file_project(db, path)?])
+    }
+}
+
+/// Setup the 'db' to compile the project in the given path with additional
+/// libraries.
+pub fn setup_project_libs(
+    db: &mut dyn SemanticGroup,
+    path: &Path,
+    libs: &HashMap<String, PathBuf>,
+) -> Result<Vec<CrateId>, ProjectError> {
+    if path.is_dir() {
+        match ProjectConfig::from_directory(path) {
+            Ok(mut config) => {
+                for (libname, path) in libs {
+                    let smol_str = SmolStr::from(libname);
+                    config.content.crate_roots.insert(smol_str, path.clone());
+                }
+
+                let main_crate_ids = get_main_crate_ids_from_project(db, &config);
+
                 update_crate_roots_from_project_config(db, config);
                 Ok(main_crate_ids)
             }

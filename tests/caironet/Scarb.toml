@@ -12,5 +12,6 @@ openzeppelin = { git = "https://github.com/TheArkProjekt/openzeppelin.git" }
 
 [scripts]
 test-caironet = "sudo docker run --rm -v /home/glihm/.cache/scarb/registry/git/checkouts:/scarb -v $(pwd):/project -t --entrypoint cairo-test glihm/caironet:1.1.0-a --starknet /project/"
+test-caironet-local = "../../target/release/cairo-test --starknet ."
 
 [[target.starknet-contract]]

@@ -8,7 +8,7 @@ use anyhow::{bail, Context, Result};
 use cairo_felt::Felt252;
 use cairo_lang_compiler::db::RootDatabase;
 use cairo_lang_compiler::diagnostics::DiagnosticsReporter;
-use cairo_lang_compiler::project::setup_project;
+use cairo_lang_compiler::project::setup_project_libs;
 use cairo_lang_debug::DebugWithDb;
 use cairo_lang_defs::ids::{FreeFunctionId, FunctionWithBodyId, ModuleItemId};
 use cairo_lang_diagnostics::ToOption;
@@ -89,7 +89,12 @@ impl TestRunner {
             b.build()?
         };
 
-        let main_crate_ids = setup_project(db, Path::new(&path))?;
+        // Parse the Scarb.toml file to get libs paths.
+        let mut libs: HashMap<String, PathBuf> = HashMap::new();
+        libs.insert(String::from("openzeppelin"),
+                    PathBuf::from("/home/glihm/.cache/scarb/registry/git/checkouts/openzeppelin-3ptef6rrrel9s/cba9f2c/src"));
+
+        let main_crate_ids = setup_project_libs(db, Path::new(&path), &libs)?;
 
         let mocked_addresses = mocked_addresses_parse(&PathBuf::from(path))?;
 
@@ -400,7 +405,6 @@ fn starknet_state_from_mocked_addresses(
     for (class_hash, info) in contracts_info {
         if let Some(contract_name) = contract_name_from_info(info) {
             if let Some(mocked_addr) = mocked_addresses.get(contract_name) {
-
                 match mocked_addr {
                     MockConfig::SingletonAddress(address) => {
                         println!("Mocked address: {} for {} (class_hash: {})",
@@ -409,7 +413,7 @@ fn starknet_state_from_mocked_addresses(
                                  class_hash);
 
                         state.contract_address_set(address_from_string(address), class_hash.clone());
-                    }
+                    },
                     MockConfig::InstanceAddresses(addresses) => {
                         for (instance_name, address) in addresses {
                             println!("Mocked address: {} for {} [{}] (class_hash: {})",
@@ -482,6 +486,7 @@ fn mocked_addresses_parse(
     path: &Path,
 ) -> anyhow::Result<HashMap<String, MockConfig>> {
     let path = path.join(".caironet.json");
+
     let mut file = match File::open(path) {
         Ok(f) => f,
         Err(_) => {
