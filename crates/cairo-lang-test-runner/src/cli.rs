@@ -23,10 +23,24 @@ struct Args {
     /// Should we add the starknet plugin to run the tests.
     #[arg(long, default_value_t = false)]
     starknet: bool,
+    /// Additional libraries paths to add to the project.
+    #[arg(short, long, num_args = 0.., value_delimiter = ',')]
+    libs: Vec<String>,
 }
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+
+    println!("LIBS: {:?}", args.libs);
+
+    // Here we want a special argument like --scarb
+    // to actually do the parsing of Scarb.toml + find the dirs.
+    // But in the docker case.. we must indicate where the scarb is :/
+    // Not very beautiful, and this project should not directly depend
+    // on scarb as it's more generic than scarb.
+    // What we are trying to add is the possibility to add additional
+    // crates/libraries that the compiler can include without
+    // having those libraries explicitely named in the cairo_project.toml.
 
     let runner = TestRunner::new(
         &args.path,
