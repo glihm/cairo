@@ -42,6 +42,12 @@ fn main() -> anyhow::Result<()> {
 
     let mut libs: HashMap<String, PathBuf> = HashMap::new();
 
+    for i in 0..args.nlibs.len() {
+        libs.insert(
+            String::from(args.nlibs[i].clone()),
+            PathBuf::from(args.plibs[i].clone()));
+    }
+
     let runner = TestRunner::new(
         &args.path,
         &args.filter,
