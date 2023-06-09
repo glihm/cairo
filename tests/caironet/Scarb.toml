@@ -8,6 +8,7 @@ starknet = ">=1.1.0"
 # Use of TheArkProject fork as for the moment
 # https://github.com/OpenZeppelin/cairo-contracts/pull/628 PR
 # is not merged.
+#openzeppelin = { git = "https://github.com/TheArkProjekt/openzeppelin.git" }
 openzeppelin = { git = "https://github.com/TheArkProjekt/openzeppelin.git" }
 
 [scripts]

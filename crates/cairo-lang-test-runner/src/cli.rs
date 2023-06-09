@@ -1,8 +1,10 @@
 //! Compiles and runs a Cairo program.
 
+use std::collections::HashMap;
 use anyhow::Ok;
 use cairo_lang_test_runner::TestRunner;
 use clap::Parser;
+use std::path::PathBuf;
 
 /// Command line args parser.
 /// Exits with 0/1 if the input is formatted correctly/incorrectly.
@@ -23,24 +25,22 @@ struct Args {
     /// Should we add the starknet plugin to run the tests.
     #[arg(long, default_value_t = false)]
     starknet: bool,
+    /// Additional libraries names to add to the project.
+    #[arg(long, num_args = 0..)]
+    nlibs: Vec<String>,
     /// Additional libraries paths to add to the project.
-    #[arg(short, long, num_args = 0.., value_delimiter = ',')]
-    libs: Vec<String>,
+    #[arg(long, num_args = 0..)]
+    plibs: Vec<String>,
 }
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    println!("LIBS: {:?}", args.libs);
+    if args.nlibs.len() != args.plibs.len() {
+        anyhow::bail!("nlibs and plibs must have the exact same number of values.");
+    }
 
-    // Here we want a special argument like --scarb
-    // to actually do the parsing of Scarb.toml + find the dirs.
-    // But in the docker case.. we must indicate where the scarb is :/
-    // Not very beautiful, and this project should not directly depend
-    // on scarb as it's more generic than scarb.
-    // What we are trying to add is the possibility to add additional
-    // crates/libraries that the compiler can include without
-    // having those libraries explicitely named in the cairo_project.toml.
+    let mut libs: HashMap<String, PathBuf> = HashMap::new();
 
     let runner = TestRunner::new(
         &args.path,
@@ -48,7 +48,9 @@ fn main() -> anyhow::Result<()> {
         args.include_ignored,
         args.ignored,
         args.starknet,
+        &mut libs,
     )?;
+
     runner.run()?;
 
     Ok(())

@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -16,7 +14,7 @@ use cairo_lang_filesystem::cfg::{Cfg, CfgSet};
 use cairo_lang_filesystem::ids::CrateId;
 use cairo_lang_lowering::ids::ConcreteFunctionWithBodyId;
 use cairo_lang_runner::short_string::as_cairo_short_string;
-use cairo_lang_runner::{RunResultValue, SierraCasmRunner, StarknetState};
+use cairo_lang_runner::{RunResultValue, SierraCasmRunner};
 use cairo_lang_semantic::db::SemanticGroup;
 use cairo_lang_semantic::items::functions::GenericFunctionId;
 use cairo_lang_semantic::{ConcreteFunction, FunctionLongId};
@@ -34,7 +32,6 @@ use cairo_lang_starknet::plugin::StarkNetPlugin;
 use cairo_lang_utils::ordered_hash_map::OrderedHashMap;
 use colored::Colorize;
 use itertools::{chain, Itertools};
-use num_bigint::BigUint;
 use plugin::TestPlugin;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
@@ -42,9 +39,10 @@ use test_config::{try_extract_test_config, TestConfig};
 
 use crate::test_config::{PanicExpectation, TestExpectation};
 
-use serde::Deserialize;
-use serde::Deserializer;
-use serde_json::Value;
+mod mock;
+use crate::mock::MockConfig;
+
+mod scarb;
 
 mod plugin;
 mod test_config;
@@ -75,6 +73,7 @@ impl TestRunner {
         include_ignored: bool,
         ignored: bool,
         starknet: bool,
+        libs: &mut HashMap<String, PathBuf>,
     ) -> Result<Self> {
         let db = &mut {
             let mut b = RootDatabase::builder();
@@ -89,14 +88,17 @@ impl TestRunner {
             b.build()?
         };
 
-        // Parse the Scarb.toml file to get libs paths.
-        let mut libs: HashMap<String, PathBuf> = HashMap::new();
-        libs.insert(String::from("openzeppelin"),
-                    PathBuf::from("/home/glihm/.cache/scarb/registry/git/checkouts/openzeppelin-3ptef6rrrel9s/cba9f2c/src"));
+        scarb::autodetect_libs(&PathBuf::from(path), libs);
+
+        // let mut libs: HashMap<String, PathBuf> = HashMap::new();
+        // libs.insert(String::from("openzeppelin"),
+        //             PathBuf::from("/home/glihm/.cache/scarb/registry/git/checkouts/openzeppelin-3ptef6rrrel9s/cba9f2c/src"));
+
+        println!("LIBS: {:?}", libs);
 
         let main_crate_ids = setup_project_libs(db, Path::new(&path), &libs)?;
 
-        let mocked_addresses = mocked_addresses_parse(&PathBuf::from(path))?;
+        let mocked_addresses = mock::mocked_addresses_parse(&PathBuf::from(path))?;
 
         if DiagnosticsReporter::stderr().check(db) {
             bail!("failed to compile: {}", path);
@@ -260,7 +262,7 @@ fn run_tests(
     // }
 
     // Build state from mocked addresses.
-    let starknet_state_mocked = starknet_state_from_mocked_addresses(
+    let starknet_state_mocked = mock::starknet_state_from_mocked_addresses(
         mocked_addresses,
         &contracts_info
     )?;
@@ -362,151 +364,4 @@ fn find_all_tests(
         }
     }
     tests
-}
-
-/// Gets a contract name from it's info.
-/// Considering that a contract always have at least one external
-/// or one constructor.
-fn contract_name_from_info(
-    info: &ContractInfo,
-) -> Option<&str> {
-    match &info.constructor {
-        Some(func_id) => {
-            if let Some(debug_name) = &func_id.debug_name {
-                let frags: Vec<&str> = debug_name.split("::").collect();
-                Some(frags[frags.len() - 3])
-            } else {
-                None
-            }
-        },
-        None => {
-            if let Some(ext) = &info.externals.values().next() {
-                if let Some(debug_name) = &ext.debug_name {
-                    let frags: Vec<&str> = debug_name.split("::").collect();
-                    Some(frags[frags.len() - 3])
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }
-    }
-}
-
-/// Builds a mocked StarknetState from mocked addresses.
-fn starknet_state_from_mocked_addresses(
-    mocked_addresses: &HashMap<String, MockConfig>,
-    contracts_info: &HashMap<Felt252, ContractInfo>,
-) -> anyhow::Result<StarknetState> {
-
-    let mut state: StarknetState = Default::default();
-
-    for (class_hash, info) in contracts_info {
-        if let Some(contract_name) = contract_name_from_info(info) {
-            if let Some(mocked_addr) = mocked_addresses.get(contract_name) {
-                match mocked_addr {
-                    MockConfig::SingletonAddress(address) => {
-                        println!("Mocked address: {} for {} (class_hash: {})",
-                                 address,
-                                 contract_name,
-                                 class_hash);
-
-                        state.contract_address_set(address_from_string(address), class_hash.clone());
-                    },
-                    MockConfig::InstanceAddresses(addresses) => {
-                        for (instance_name, address) in addresses {
-                            println!("Mocked address: {} for {} [{}] (class_hash: {})",
-                                     address,
-                                     contract_name,
-                                     instance_name,
-                                     class_hash);
-
-                            state.contract_address_set(address_from_string(address), class_hash.clone());                            
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(state.clone())
-}
-
-/// Converts an address string (dec or hex) into a Felt252.
-fn address_from_string(addr: &String) -> Felt252 {
-
-    let mut hex_or_dec_addr: String = addr.clone();
-    let mut radix: u32 = 10;
-    if addr.starts_with("0x") {
-        radix = 16;
-        hex_or_dec_addr = hex_or_dec_addr.strip_prefix("0x").unwrap_or(addr).to_string();
-    }
-
-    let u = BigUint::parse_bytes(hex_or_dec_addr.as_bytes(), radix)
-        .unwrap_or_else(|| panic!("Failed to parse BigUint from string '{}' with radix {}.", addr, radix));
-
-    Felt252::from(u)
-}
-
-#[derive(Debug)]
-pub enum MockConfig {
-    SingletonAddress(String),
-    InstanceAddresses(HashMap<String, String>),
-}
-
-impl<'de> Deserialize<'de> for MockConfig {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value: Value = Deserialize::deserialize(deserializer)?;
-
-        match value {
-            Value::String(address) => Ok(MockConfig::SingletonAddress(address)),
-            Value::Object(addresses) => {
-                let map = addresses
-                    .into_iter()
-                    .map(|(k, v)| match v {
-                        Value::String(value) => Ok((k, value)),
-                        _ => Err(serde::de::Error::custom("Invalid value in InstanceAddresses")),
-                    })
-                    .collect::<Result<HashMap<String, String>, _>>()?;
-
-                Ok(MockConfig::InstanceAddresses(map))
-            }
-            _ => Err(serde::de::Error::custom("Invalid MockConfig value")),
-        }
-    }
-}
-
-/// Parses mocked contract address
-/// from mapping file.
-fn mocked_addresses_parse(
-    path: &Path,
-) -> anyhow::Result<HashMap<String, MockConfig>> {
-    let path = path.join(".caironet.json");
-
-    let mut file = match File::open(path) {
-        Ok(f) => f,
-        Err(_) => {
-            println!("No contract address to be mocked as .caironet.json file was not found.");
-            println!("Please check the README for the configuration.\n");
-            return Ok(Default::default());
-        }
-    };
-
-    let mut json = String::new();
-    let content: HashMap<String, MockConfig> = match file.read_to_string(&mut json) {
-        Ok(_) => match serde_json::from_str(&json) {
-            Ok(c) => c,
-            Err(e) => {
-                println!("{:?}", e);
-                anyhow::bail!("Mocked addressess file is not in the expected format.")
-            }
-        },
-        Err(_) => anyhow::bail!("Mocked addresses file is not readable.")
-    };
-
-    Ok(content)
 }
