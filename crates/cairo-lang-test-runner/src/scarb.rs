@@ -18,6 +18,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use toml::Value;
 
+use crate::project;
+
 /// Library information from Scarb.toml file.
 /// The name and the revision are enough to find
 /// the library in the cache directory of Scarb.
@@ -35,6 +37,10 @@ pub struct LibInfo {
 pub fn autodetect_libs(path: &PathBuf, libs: &mut HashMap<String, PathBuf>) {
 
     let scarb_toml_path = PathBuf::from(path).join("Scarb.toml");
+    if !scarb_toml_path.exists() {
+        // TODO: print something? Or just silent?
+        return;
+    }
 
     let scarb_libs = get_libs_from_toml(&scarb_toml_path);
 
@@ -45,7 +51,8 @@ pub fn autodetect_libs(path: &PathBuf, libs: &mut HashMap<String, PathBuf>) {
 
     for lib in scarb_libs {
         if let Some(lib_path) = detect_lib_from_cache_dir(&scarb_cache_dir, &lib) {
-            libs.insert(lib.name, lib_path);
+            libs.insert(lib.name.clone(), lib_path);
+            println!("Library {:?} added from Scarb", lib.name);
         }
     }
 }
@@ -64,14 +71,15 @@ fn detect_lib_from_cache_dir(
     root_dir: &Path,
     info: &LibInfo,
 ) -> Option<PathBuf> {
+
     // The `-` is important as some libraries may contains the same substring
     // as others. And `-` is an invalid char in the Scarb.toml dependencies keys.
-    let libname = &format!("{}-", info.name.as_str());
+    let libname_hyphen = &format!("{}-", info.name.as_str());
     let rev = info.rev.as_str();
 
     // Get a list of directories in the root directory starting with
     // the libname as prefix.
-    let lib_dirs = get_subdirectories(root_dir, libname);
+    let lib_dirs = get_subdirectories(root_dir, libname_hyphen);
 
     let mut found_directory = None;
 
@@ -86,8 +94,10 @@ fn detect_lib_from_cache_dir(
         }
     }
 
+    let lib_path;
+
     if let Some(rev_d) = found_directory {
-        Some(rev_d.clone())
+        lib_path = Some(rev_d.clone());
     } else {
         // If the target directory with rev is not found, select the most recent revision.
         found_directory = lib_dirs.iter().max_by_key(|&dir| {
@@ -99,10 +109,27 @@ fn detect_lib_from_cache_dir(
         
         if let Some(d) = found_directory {
             if let Some(rev_d) = get_most_recent_subdirectory(d) {
-                return Some(rev_d.clone());
+                lib_path = Some(rev_d.clone());
+            } else {
+                return None;
             }
+        } else {
+            return None;
         }
+    }
 
+    // Now we ge the revision directory, we can check the project file
+    // to extract the exact location of the library we are looking for.
+    if let Some(d) = lib_path {
+        if let Some(root_path) = project::get_root_path_from_toml(
+            &PathBuf::from(d.clone()).join("cairo_project.toml"),
+            info.name.as_str()) {
+            return Some(d.join(root_path).clone());
+        } else {
+            println!("project file not found ??");
+            return None;
+        }
+    } else {
         None
     }
 }

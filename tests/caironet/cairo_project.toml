@@ -2,36 +2,3 @@
 [crate_roots]
 caironet = "src"
 tests = "tests"
-
-
-# TODO: work how scarb can be easily supported, and more when
-# there are several checkouts for the same dependency as we don't know
-# which one to choose.
-# If users are using a fixed revision, it's just parsing the dependencies
-# from the Scarb.toml, and edit this file on the fly (or check how to do
-# it directly in the test runner code to avoid changing this file).
-#
-# related code to how the project file is loaded: https://github.com/glihm/caironet/blob/1.1.0/crates/cairo-lang-project/src/lib.rs#L39
-#
-# If we can change the ProjectConfigContent crates_root HashMap
-# and add on the fly the dependency found in Scarb.toml -> win.
-# https://github.com/glihm/caironet/blob/1.1.0/crates/cairo-lang-compiler/src/project.rs#L83
-#
-# So check if we better change the setup function to take additional entries...?
-# and add them to the project config.
-# But for the case of docker, we need to specify the root path for scarb.. :/
-# Because running in local, we know where scarb is (but may be overriden by
-# the user at scarb install ??).
-# If we add a CLAP option -> --scarb /path/ ? And if not used, the default
-# scarb location is used ($HOME/.cache/scarb).
-# If no revision, take the most recent one.
-#
-# It's more generic than scarb -> It's like having additional
-# paths where cairo libraries are located! And the scarb $HOME/.cache/scarb/registry/...
-# is always added by default. So without --libs, it will find it alone.
-# (we can also add the docker version with /scarb though....!)
-# So instead of --scarb, use --libs! (and this can be use for any additional project!)
-# Instead of changing the `cairo_project.toml` file!!!! (well, it's an alternative).
-# To be more flexible, we may have several paths separated with commas.
-#openzeppelin = "/scarb/openzeppelin-3ptef6rrrel9s/cba9f2c/src"
-#openzeppelin = "/home/glihm/.cache/scarb/registry/git/checkouts/openzeppelin-3ptef6rrrel9s/cba9f2c/src"

@@ -43,6 +43,7 @@ mod mock;
 use crate::mock::MockConfig;
 
 mod scarb;
+mod project;
 
 mod plugin;
 mod test_config;
@@ -89,12 +90,6 @@ impl TestRunner {
         };
 
         scarb::autodetect_libs(&PathBuf::from(path), libs);
-
-        // let mut libs: HashMap<String, PathBuf> = HashMap::new();
-        // libs.insert(String::from("openzeppelin"),
-        //             PathBuf::from("/home/glihm/.cache/scarb/registry/git/checkouts/openzeppelin-3ptef6rrrel9s/cba9f2c/src"));
-
-        println!("LIBS: {:?}", libs);
 
         let main_crate_ids = setup_project_libs(db, Path::new(&path), &libs)?;
 
