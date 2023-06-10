@@ -121,22 +121,24 @@ An example is given testing [here](https://github.com/glihm/cairo/blob/1.1.0/tes
 the contract [balance_checker.cairo](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet_scarb/src/balance_checker.cairo)
 which depends on the OpenZeppelin standard.
 
-In this example, the dependency is managed with Scarb as usual, and the test runner is using
+In this example, the dependency is managed with Scarb, and the test runner is using
 the dependency pulled by scarb to run the test.
 
 When doing so, the imported contracts may also have tests to run. In order to
 only run the test you want, you can use the `--filter` option from the `cairo-test` command.
 
-First, check the `Scarb.toml` file of this example and you will see that the docker as two volumes,
+First, check the [Scarb.toml file](https://github.com/glihm/caironet/blob/1.1.0/tests/caironet_scarb/Scarb.toml) of this example and you will see that the docker as two volumes,
 to ensure that all dependencies pulled by scarb can be located correctly.
 Do not forget to adapt to your location. I have tried to use `$(echo $HOME)` instead
 but it looks like the variable is not set in the environment of the execution in `scarb run`.
 
 To run this example you have to do:
-```
+```bash
 cd tests/caironet_scarb/
-scarb run test-caironet --filter erc20_call
+scarb run test-caironet --filter test_erc20_call
 ```
+
+Try to run without this filter, and you will see all OpenZeppellin tests running too.
 
 **Important note**, Scarb is planning to totally integrate the `cairo_project.toml`,
 which will make the built-in test runner not able to find dependencies.
