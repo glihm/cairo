@@ -1,0 +1,17 @@
+[package]
+name = "caironet_scarb"
+version = "0.1.0"
+
+[dependencies]
+starknet = ">=1.1.0"
+
+# Use of TheArkProject fork as for the moment
+# https://github.com/OpenZeppelin/cairo-contracts/pull/628 PR
+# is not merged.
+openzeppelin = { git = "https://github.com/TheArkProjekt/openzeppelin.git", rev = "cba9f2c" }
+
+[scripts]
+test-caironet = "sudo docker run --rm -v /home/glihm/.cache/scarb/:/root/.cache/scarb -v $(pwd):/project -t --entrypoint cairo-test glihm/caironet:1.1.0-a --starknet /project/"
+test-caironet-local = "../../target/release/cairo-test --starknet ."
+
+[[target.starknet-contract]]

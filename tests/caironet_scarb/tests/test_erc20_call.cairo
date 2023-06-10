@@ -1,6 +1,6 @@
 // Integration tests with external ERC20 contract use to check balances.
 
-use caironet::balance_checker::BalanceChecker;
+use caironet_scarb::balance_checker::BalanceChecker;
 
 use integer::u256;
 use integer::u256_from_felt252;

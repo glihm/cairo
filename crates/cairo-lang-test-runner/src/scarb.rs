@@ -97,7 +97,7 @@ fn detect_lib_from_cache_dir(
     let lib_path;
 
     if let Some(rev_d) = found_directory {
-        lib_path = Some(rev_d.clone());
+        lib_path = Some(PathBuf::from(rev_d.clone()).join(rev));
     } else {
         // If the target directory with rev is not found, select the most recent revision.
         found_directory = lib_dirs.iter().max_by_key(|&dir| {
