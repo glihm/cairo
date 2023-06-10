@@ -49,12 +49,19 @@ fn nft_operator_authorized() {
     // NFTOperator::authorized_transfer(JOHN_ADDR, DOE_ADDR, DUO_5123_TOKEN);
 
 
-    // TO BE CONTINUED...!
-
     // Let's say JOHN will give the approval to the NTF operator to transfer
     // his DUO 5123.
-    // set_contract_address(EVERAI_DUO_COLLECTION_ADDR);
-    // ERC721::approve(OPERATOR_ADDR, DUO_5123_TOKEN);
+    set_contract_address(EVERAI_DUO_COLLECTION_ADDR);
 
-    // NFTOperator::authorized_transfer(JOHN_ADDR, DOE_ADDR, DUO_5123_TOKEN);
+    // The caller must be JOHN as the owner of the duo.
+    set_caller_address(JOHN_ADDR);
+    ERC721::approve(OPERATOR_ADDR, DUO_5123_TOKEN);
+    
+    // Now the operator can transfer on the behalf of JOHN.
+    // Remember that we've to switch the address to target the good storage.
+    set_contract_address(OPERATOR_ADDR);
+    NFTOperator::authorized_transfer(JOHN_ADDR, DOE_ADDR, DUO_5123_TOKEN);
+
+    set_contract_address(EVERAI_DUO_COLLECTION_ADDR);
+    assert(ERC721::owner_of(DUO_5123_TOKEN) == DOE_ADDR, 'Operator transfer failed');
 }
