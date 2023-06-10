@@ -116,6 +116,8 @@ test-caironet = "/path/caironet/target/release/cairo-test --starknet ."
 
 ## Testing contracts that are outside your package
 
+(**Before any testing, do not forget to run `scarb build` to ensure that all dependencies are fecthed by Scarb**)
+
 You can run integration testing, using contracts outside of your package.
 An example is given testing [here](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet_scarb/tests/test_erc20_call.cairo)
 the contract [balance_checker.cairo](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet_scarb/src/balance_checker.cairo)
