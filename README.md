@@ -102,9 +102,9 @@ Example of `Scarb.toml` file using the [docker image from docker hub](https://hu
 
 ```toml
 [scripts]
-test-caironet = "sudo docker run --rm -v $(pwd):/project -t --entrypoint cairo-test glihm/caironet:1.1.0-a --starknet /project/"
+test-caironet = "sudo docker run --rm -v $(pwd):/project -t --entrypoint cairo-test glihm/caironet:1.1.0-b --starknet /project/"
 ```
-The docker tag is always the cairo-compile version (`1.1.0` in this example), with an incremental version of `caironet` (`a` in this example).
+The docker tag is always the cairo-compile version (`1.1.0` in this example), with an incremental version of `caironet` (`b` in this example).
 Consider to always run `cairo-test` with `--starknet` plugin.
 
 To compile locally, use `cargo build --package cairo-lang-test-runner --release`
@@ -113,6 +113,34 @@ To compile locally, use `cargo build --package cairo-lang-test-runner --release`
 [scripts]
 test-caironet = "/path/caironet/target/release/cairo-test --starknet ."
 ```
+
+## Testing contracts that are outside your package
+
+You can run integration testing, using contracts outside of your package.
+An example is given testing [here](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet_scarb/tests/test_erc20_call.cairo)
+the contract [balance_checker.cairo](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet_scarb/src/balance_checker.cairo)
+which depends on the OpenZeppelin standard.
+
+In this example, the dependency is managed with Scarb as usual, and the test runner is using
+the dependency pulled by scarb to run the test.
+
+When doing so, the imported contracts may also have tests to run. In order to
+only run the test you want, you can use the `--filter` option from the `cairo-test` command.
+
+First, check the `Scarb.toml` file of this example and you will see that the docker as two volumes,
+to ensure that all dependencies pulled by scarb can be located correctly.
+Do not forget to adapt to your location. I have tried to use `$(echo $HOME)` instead
+but it looks like the variable is not set in the environment of the execution in `scarb run`.
+
+To run this example you have to do:
+```
+cd tests/caironet_scarb/
+scarb run test-caironet --filter erc20_call
+```
+
+**Important note**, Scarb is planning to totally integrate the `cairo_project.toml`,
+which will make the built-in test runner not able to find dependencies.
+Caironet will adapt to that in order to keep being compatible to scarb, or native contract testing.
 
 ## Starknet contracts dichotomy
 
@@ -143,6 +171,9 @@ Finally, `caironet` was designed this way because populating the `StarknetState`
 
 The focus of `caironet` is to keep testing simple, with no changes compared
 to the original `cairo-lang` testing features for the `starknet` plugin found [here](https://github.com/starkware-libs/cairo/blob/c4dcdf689840313e27f6305ba89d489169a68348/corelib/src/starknet/testing.cairo).
+
+Also, scarb is planning to integrate the `cairo_project.toml` which is used by the
+compiler to locate crates. Caironet will adapt to thoses changes.
 
 ## Disclaimer
 
