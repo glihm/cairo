@@ -17,7 +17,7 @@ use starknet::testing::set_caller_address;
 #[available_gas(2000000)]
 fn test_c1_c2_interaction() {
 
-    // JOHN and DOE addresses here must be placed into the .addrs_mock.json
+    // JOHN and DOE addresses here must be placed into the .caironet.json located at the root of your project
     // file to be considered as "deployed", as to be able to call the corresponding
     // dispatchers.
     let JOHN_ADDR: ContractAddress = contract_address_const::<1010>();
@@ -84,7 +84,7 @@ fn test_c1_c2_interaction() {
 #[available_gas(2000000)]
 fn test_bad_set_address() {
 
-    // Those addresses here must be placed into the .addrs_mock.json
+    // Those addresses here must be placed into the .caironet.json located at the root of your project
     // file to be considered as deployed.
     let JOHN_ADDR: ContractAddress = contract_address_const::<1010>();
     let DOE_ADDR: ContractAddress = contract_address_const::<0x1234>();
@@ -121,7 +121,7 @@ fn test_bad_set_address() {
 #[available_gas(2000000)]
 fn test_set_caller_address() {
 
-    // Those addresses here must be placed into the .addrs_mock.json
+    // Those addresses here must be placed into the .caironet.json located at the root of your project
     // file to be considered as deployed.
     let JOHN_ADDR: ContractAddress = contract_address_const::<1010>();
     let DOE_ADDR: ContractAddress = contract_address_const::<0x1234>();
