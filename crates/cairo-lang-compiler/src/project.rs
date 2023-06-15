@@ -85,8 +85,6 @@ pub fn setup_project(
             Ok(config) => {
                 let main_crate_ids = get_main_crate_ids_from_project(db, &config);
 
-                
-
                 update_crate_roots_from_project_config(db, config);
                 Ok(main_crate_ids)
             }
@@ -105,20 +103,29 @@ pub fn setup_project_libs(
     libs: &HashMap<String, PathBuf>,
 ) -> Result<Vec<CrateId>, ProjectError> {
     if path.is_dir() {
-        match ProjectConfig::from_directory(path) {
-            Ok(mut config) => {
-                for (libname, path) in libs {
-                    let smol_str = SmolStr::from(libname);
-                    config.content.crate_roots.insert(smol_str, path.clone());
+
+        let mut config = match ProjectConfig::from_directory(path) {
+            Ok(config) => config,
+            _ => {
+                ProjectConfig {
+                    base_path: path.to_path_buf(),
+                    content: ProjectConfigContent {
+                        crate_roots: HashMap::new(),
+                    },
+                    corelib: None
                 }
-
-                let main_crate_ids = get_main_crate_ids_from_project(db, &config);
-
-                update_crate_roots_from_project_config(db, config);
-                Ok(main_crate_ids)
             }
-            _ => Err(ProjectError::LoadProjectError),
+        };
+
+        for (libname, path) in libs {
+            let smol_str = SmolStr::from(libname);
+            config.content.crate_roots.insert(smol_str, path.clone());
         }
+
+        let main_crate_ids = get_main_crate_ids_from_project(db, &config);
+
+        update_crate_roots_from_project_config(db, config);
+        Ok(main_crate_ids)
     } else {
         Ok(vec![setup_single_file_project(db, path)?])
     }

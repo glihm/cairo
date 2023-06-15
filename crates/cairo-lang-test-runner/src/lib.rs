@@ -92,7 +92,7 @@ impl TestRunner {
             b.build()?
         };
 
-        scarb::autodetect_libs(&PathBuf::from(path), libs);
+        scarb::autodetect_libs(&PathBuf::from(path), libs, show_mock);
 
         let main_crate_ids = setup_project_libs(db, Path::new(&path), libs)?;
 
@@ -192,7 +192,7 @@ impl TestRunner {
             run_tests(named_tests, sierra_program, function_set_costs, contracts_info, &self.mocked_addresses, self.show_mock)?;
         if failed.is_empty() {
             println!(
-                "test result: {}. {} passed; {} failed; {} ignored; {filtered_out} filtered out;",
+                "\ntest result: {}. {} passed; {} failed; {} ignored; {filtered_out} filtered out;",
                 "ok".bright_green(),
                 passed.len(),
                 failed.len(),
@@ -200,7 +200,7 @@ impl TestRunner {
             );
             Ok(None)
         } else {
-            println!("failures:");
+            println!("\nfailures:");
             for (failure, run_result) in failed.iter().zip_eq(failed_run_results) {
                 print!("   {failure} - ");
                 match run_result {
@@ -267,7 +267,7 @@ fn run_tests(
         contracts_info.clone(),
     )
     .with_context(|| "Failed setting up runner.")?;
-    println!("running {} tests", named_tests.len());
+    println!("running {} tests\n", named_tests.len());
     let wrapped_summary = Mutex::new(Ok(TestsSummary {
         passed: vec![],
         failed: vec![],

@@ -18,6 +18,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use toml::Value;
 
+use colored::Colorize;
+
 use crate::project;
 
 /// Library information from Scarb.toml file.
@@ -34,13 +36,30 @@ pub struct LibInfo {
 ///
 /// * `path` - Path where `Scarb.toml` file is expected to be.
 /// * `libs` - Cairo libraries where Scarb dependencies may be added.
-pub fn autodetect_libs(path: &PathBuf, libs: &mut HashMap<String, PathBuf>) {
+pub fn autodetect_libs(
+    path: &PathBuf,
+    libs: &mut HashMap<String, PathBuf>,
+    show_mock: bool,
+) {
 
     let scarb_toml_path = PathBuf::from(path).join("Scarb.toml");
     if !scarb_toml_path.exists() {
-        // TODO: print something? Or just silent?
-        return;
+        return ();
     }
+
+    match get_package_name_from_toml(&scarb_toml_path) {
+        Some(pn) => {
+            libs.insert(pn.clone(), PathBuf::from(path.clone().join("src")));
+
+            if show_mock {
+                let s = format!("Package {} added from Scarb", pn);
+                println!("{}", s.bright_black());
+            }
+        }
+        None => (),
+    };
+
+    libs.insert(String::from("tests"), PathBuf::from(path.clone().join("tests")));
 
     let scarb_libs = get_libs_from_toml(&scarb_toml_path);
 
@@ -52,7 +71,11 @@ pub fn autodetect_libs(path: &PathBuf, libs: &mut HashMap<String, PathBuf>) {
     for lib in scarb_libs {
         if let Some(lib_path) = detect_lib_from_cache_dir(&scarb_cache_dir, &lib) {
             libs.insert(lib.name.clone(), lib_path);
-            println!("Library {:?} added from Scarb", lib.name);
+
+            if show_mock {
+                let s = format!("Library {} added from Scarb", lib.name.to_string());
+                println!("{}", s.bright_black());
+            }
         }
     }
 }
@@ -182,6 +205,34 @@ fn get_libs_from_toml(
 
     libs
 }
+
+/// Extracts package name from Scarb.toml file.
+///
+/// * `path` - Path of the `Scarb.toml` file to parse.
+fn get_package_name_from_toml(
+    path: &Path,
+) -> Option<String> {
+
+    if !path.exists() {
+        return None;
+    }
+
+    let toml_str = fs::read_to_string(path)
+        .expect(format!("Failed to read TOML file from '{:?}'.", path).as_str());
+
+    // Parse the TOML string into a Value object
+    let parsed_toml: Value = toml::from_str(&toml_str)
+        .expect(format!("Failed to parse TOML file from '{:?}'.", path).as_str());
+
+    let name = parsed_toml
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(|name| name.as_str())
+        .map(|name| name.to_string());
+
+    name
+}
+
 
 /// Lists all the subdirectories of the given path.
 ///

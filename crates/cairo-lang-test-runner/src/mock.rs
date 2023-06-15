@@ -72,8 +72,7 @@ pub fn mocked_addresses_parse(
     let mut file = match File::open(path) {
         Ok(f) => f,
         Err(_) => {
-            println!("No contract address to be mocked as .caironet.json file was not found.");
-            println!("Please check the README for the configuration: https://github.com/glihm/caironet/blob/1.1.0/README.md.\n");
+            println!("{}", ".caironet.json file not found, skip global mocking.\n".bright_yellow());
             return Ok(Default::default());
         }
     };
@@ -111,7 +110,7 @@ pub fn starknet_add_mocked_addresses(
                 match mocked_addr {
                     MockConfig::SingletonAddress(address) => {
                         if show_mock {
-                            println!("\n[{}]\n{} mocked at {}\nclass_hash: {}",
+                            println!("[{}]\n{} mocked at {}\nclass_hash: {}\n",
                                      format!("{}", test_name.bright_yellow()),
                                      format!("{}", contract_name.bright_cyan()),
                                      format!("{}", address.bright_purple()),
@@ -123,7 +122,7 @@ pub fn starknet_add_mocked_addresses(
                     MockConfig::InstanceAddresses(addresses) => {
                         for (instance_name, address) in addresses {
                             if show_mock {
-                                println!("\n[{}]\n{} [{}] mocked at {}\nclass_hash: {}",
+                                println!("[{}]\n{} [{}] mocked at {}\nclass_hash: {}\n",
                                          format!("{}", test_name.bright_yellow()),
                                          format!("{}", contract_name.bright_cyan()),
                                          format!("{}", instance_name.bright_black()),
