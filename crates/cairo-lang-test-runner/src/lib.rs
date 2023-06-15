@@ -257,8 +257,9 @@ fn run_tests(
     //     println!("class_hash: {:?}, contract_info: {:?}", class_hash, info);
     // }
 
-    // Build state from mocked addresses.
-    let starknet_state_mocked = mock::starknet_state_from_mocked_addresses(
+    let mut starknet_state_mocked = Default::default();
+    mock::starknet_add_mocked_addresses(
+        &mut starknet_state_mocked,
         mocked_addresses,
         &contracts_info
     )?;
@@ -266,7 +267,7 @@ fn run_tests(
     let runner = SierraCasmRunner::new(
         sierra_program,
         Some(MetadataComputationConfig { function_set_costs }),
-        contracts_info,
+        contracts_info.clone(),
     )
     .with_context(|| "Failed setting up runner.")?;
     println!("running {} tests", named_tests.len());
@@ -277,12 +278,20 @@ fn run_tests(
         failed_run_results: vec![],
     }));
 
+    let state_mutex = Mutex::new(starknet_state_mocked.clone());
     named_tests
         .into_par_iter()
         .map(|(name, test)| -> anyhow::Result<(String, TestStatus)> {
             if test.ignored {
                 return Ok((name, TestStatus::Ignore));
             }
+
+            let mut state = state_mutex.lock().unwrap();
+            mock::starknet_add_mocked_addresses(
+                &mut state,
+                &test.caironet,
+                &contracts_info
+            )?;
 
             let result = runner
                 .run_function(

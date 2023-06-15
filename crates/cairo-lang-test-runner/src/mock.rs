@@ -92,17 +92,16 @@ pub fn mocked_addresses_parse(
     Ok(content)
 }
 
-/// Builds a mocked `StarknetState` from mocked addresses.
+/// Adds mocked addresses to starknet state.
 ///
+/// * `state` - StarknetState where mocked addresses are added..
 /// * `mocked_addresses` - Mocked addresses from the JSON file.
 /// * `contracts_info` - Contracts info collected by the compiler.
-pub fn starknet_state_from_mocked_addresses(
+pub fn starknet_add_mocked_addresses(
+    state: &mut StarknetState,
     mocked_addresses: &HashMap<String, MockConfig>,
     contracts_info: &HashMap<Felt252, ContractInfo>,
 ) -> anyhow::Result<StarknetState> {
-
-    let mut state: StarknetState = Default::default();
-
     for (class_hash, info) in contracts_info {
         if let Some(contract_name) = contract_name_from_info(info) {
             if let Some(mocked_addr) = mocked_addresses.get(contract_name) {

@@ -1,10 +1,15 @@
+use std::collections::HashMap;
+
 use cairo_felt::Felt252;
 use cairo_lang_defs::plugin::PluginDiagnostic;
 use cairo_lang_syntax::attribute::structured::{Attribute, AttributeArg, AttributeArgVariant};
 use cairo_lang_syntax::node::ast;
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_utils::OptionHelper;
+use num_bigint::BigInt;
 use num_traits::ToPrimitive;
+
+use crate::mock::MockConfig;
 
 /// Expectation for a panic case.
 pub enum PanicExpectation {
@@ -30,6 +35,9 @@ pub struct TestConfig {
     pub expectation: TestExpectation,
     /// Should the test be ignored.
     pub ignored: bool,
+    /// Caironet addresses mapping.
+    /// Only simple mocked address is supported for now.
+    pub caironet: HashMap<String, MockConfig>,
 }
 
 /// Extracts the configuration of a tests from attributes, or returns the diagnostics if the
@@ -42,6 +50,8 @@ pub fn try_extract_test_config(
     let ignore_attr = attrs.iter().find(|attr| attr.id.as_str() == "ignore");
     let available_gas_attr = attrs.iter().find(|attr| attr.id.as_str() == "available_gas");
     let should_panic_attr = attrs.iter().find(|attr| attr.id.as_str() == "should_panic");
+    let caironet_attr = attrs.iter().find(|attr| attr.id.as_str() == "caironet");
+
     let mut diagnostics = vec![];
     if let Some(attr) = test_attr {
         if !attr.args.is_empty() {
@@ -69,6 +79,7 @@ pub fn try_extract_test_config(
     } else {
         false
     };
+
     let available_gas = if let Some(attr) = available_gas_attr {
         if let [
             AttributeArg {
@@ -88,6 +99,7 @@ pub fn try_extract_test_config(
     } else {
         None
     };
+
     let (should_panic, expected_panic_value) = if let Some(attr) = should_panic_attr {
         if attr.args.is_empty() {
             (true, None)
@@ -107,6 +119,13 @@ pub fn try_extract_test_config(
     } else {
         (false, None)
     };
+
+    let caironet = if let Some(attr) = caironet_attr {
+        extract_caironet_mappings(db, attr)
+    } else {
+        HashMap::new()
+    };
+
     if !diagnostics.is_empty() {
         return Err(diagnostics);
     }
@@ -125,6 +144,7 @@ pub fn try_extract_test_config(
                 TestExpectation::Success
             },
             ignored,
+            caironet,
         })
     })
 }
@@ -157,4 +177,102 @@ fn extract_panic_values(db: &dyn SyntaxGroup, attr: &Attribute) -> Option<Vec<Fe
             _ => None,
         })
         .collect::<Option<Vec<_>>>()
+}
+
+/// Tries to extract mappings for caironet.
+/// Mappings are expected to be named attributes: #[caironet(contract1: 0x1234, contract2: 1888)].
+/// Only literal are supported at it's an address.
+fn extract_caironet_mappings(
+    db: &dyn SyntaxGroup,
+    attr: &Attribute
+) -> HashMap<String, MockConfig> {
+
+    let mut mappings: HashMap<String, MockConfig> = HashMap::new();
+
+    attr.args.iter().for_each(|a| {
+        match &a.variant {
+            AttributeArgVariant::Named { name, value, .. } => {
+                let contract_name = name.to_string();
+                let contract_instance: Option<String>;
+                let contract_address: Option<String>;
+
+                match value {
+                    ast::Expr::Literal(literal) => {
+                        contract_address = Some(literal
+                            .numeric_value(db)
+                            .unwrap_or_default()
+                            .to_string());
+                    },
+                    // TODO: For now, don't support instances addresses.
+                    //       add support to be able to do:
+                    //       #[caironet(contract1: (0x1234, 'ERC20'))]
+                    // ast::Expr::Tuple(vals) => {
+                    //     vals.expressions(db)
+                    //         .elements(db)
+                    //         .into_iter()
+                    //         .for_each(|value| match value {
+                    //             ast::Expr::Literal(literal) => {
+                    //                 contract_address = Some(
+                    //                     literal
+                    //                         .numeric_value(db)
+                    //                         .unwrap_or_default()
+                    //                         .to_string());
+                    //             }
+                    //             ast::Expr::ShortString(literal) => {
+                    //                 contract_instance = Some(
+                    //                     literal
+                    //                         .numeric_value(db)
+                    //                         .unwrap_or_default()
+                    //                         .to_string());
+                    //             }
+                    //             _ => (),
+                    //         });
+                    // }
+                    _ => return ()
+                };
+
+                if contract_address.is_none() {
+                    // No proper address found, skip.
+                    println!("No address found for contract {:?}", contract_name);
+                    continue;
+                }
+
+                if let Some(i) = contract_instance {
+                    // If the contract name already exists, just append.
+                };
+                let mock = match contract_instance {
+                    None => MockConfig::SingletonAddress(contract_address),
+                    Some(i) => MockConfig::SingletonAddress(contract_address)
+                };
+
+                // If contract addr + contract_instance -> need to check
+                // if the contract name already exists...
+
+                if let Some(contract_address) = contract_address {
+
+                    // Check if contract name already exist. If yes -> need
+                    // to check if it's an instances or singleton...!
+
+                    match contract_instance {
+                        Some(i) => {
+                            mappings.insert(
+                                contract_name,
+                                MockConfig::(contract_address));
+                        },
+                        None => {
+                            mappings.insert(
+                                contract_name,
+                                MockConfig::SingletonAddress(contract_address));
+                        }
+                    }
+
+                }
+
+            },
+            _ => ()
+        }
+    });
+
+    println!("MAPPINGS FROM ATTR {:?}", mappings);
+    mappings
 }

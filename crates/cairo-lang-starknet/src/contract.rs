@@ -152,7 +152,7 @@ fn get_generated_contract_module(
 }
 
 /// Sierra informaton of a contract.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ContractInfo {
     /// Sierra function of the constructor.
     pub constructor: Option<FunctionId>,
