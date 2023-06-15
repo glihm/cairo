@@ -250,7 +250,6 @@ fn extract_caironet_mocks(
                     None => {
                         // Directly register the singleton.
                         mocks.insert(contract_name, MockConfig::SingletonAddress(contract_address));
-                        return ();
                     }
                 };
             },

@@ -92,7 +92,7 @@ impl TestRunner {
 
         scarb::autodetect_libs(&PathBuf::from(path), libs);
 
-        let main_crate_ids = setup_project_libs(db, Path::new(&path), &libs)?;
+        let main_crate_ids = setup_project_libs(db, Path::new(&path), libs)?;
 
         let mocked_addresses = mock::mocked_addresses_parse(&PathBuf::from(path))?;
 
