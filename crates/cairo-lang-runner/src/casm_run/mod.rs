@@ -592,7 +592,10 @@ impl HintProcessor for CairoHintProcessor<'_> {
                         let Some(class_hash) =
                             self.starknet_state.deployed_contracts.get(&contract_address) else
                         {
-                            println!("ADDR NOT FOUND: {:?}", &contract_address);
+                            println!("\n*****\n");
+                            println!("No contract deployed at the address {:?}, but a call contract syscall was made.", &contract_address);
+                            println!("Ensure that your contract address is defined in .caironet.json file or with #[caironet(MyContract: {:?})] macro.", &contract_address);
+                            println!("\n*****\n");
                             fail_syscall!(b"CONTRACT_NOT_DEPLOYED");
                         };
 
