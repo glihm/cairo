@@ -15,6 +15,7 @@ use serde::Deserializer;
 use serde_json::Value;
 
 use num_bigint::BigUint;
+use colored::Colorize;
 
 use cairo_felt::Felt252;
 use cairo_lang_runner::StarknetState;
@@ -72,7 +73,7 @@ pub fn mocked_addresses_parse(
         Ok(f) => f,
         Err(_) => {
             println!("No contract address to be mocked as .caironet.json file was not found.");
-            println!("Please check the README for the configuration.\n");
+            println!("Please check the README for the configuration: https://github.com/glihm/caironet/blob/1.1.0/README.md.\n");
             return Ok(Default::default());
         }
     };
@@ -81,8 +82,8 @@ pub fn mocked_addresses_parse(
     let content: HashMap<String, MockConfig> = match file.read_to_string(&mut json) {
         Ok(_) => match serde_json::from_str(&json) {
             Ok(c) => c,
-            Err(e) => {
-                println!("{:?}", e);
+            Err(_) => {
+                //println!("{:?}", e);
                 anyhow::bail!("Mocked addressess file is not in the expected format.")
             }
         },
@@ -102,28 +103,33 @@ pub fn starknet_add_mocked_addresses(
     mocked_addresses: &HashMap<String, MockConfig>,
     contracts_info: &HashMap<Felt252, ContractInfo>,
     test_name: &str,
+    show_mock: bool,
 ) -> anyhow::Result<StarknetState> {
     for (class_hash, info) in contracts_info {
         if let Some(contract_name) = contract_name_from_info(info) {
             if let Some(mocked_addr) = mocked_addresses.get(contract_name) {
                 match mocked_addr {
                     MockConfig::SingletonAddress(address) => {
-                        println!("[{}] Mocked address: {} for {} (class_hash: {})",
-                                 test_name,
-                                 address,
-                                 contract_name,
-                                 class_hash);
+                        if show_mock {
+                            println!("\n[{}]\n{} mocked at {}\nclass_hash: {}",
+                                     format!("{}", test_name.bright_yellow()),
+                                     format!("{}", contract_name.bright_cyan()),
+                                     format!("{}", address.bright_purple()),
+                                     format!("{}", class_hash.to_string().bright_black()));
+                        }
 
                         state.contract_address_set(address_from_string(address), class_hash.clone());
                     },
                     MockConfig::InstanceAddresses(addresses) => {
                         for (instance_name, address) in addresses {
-                            println!("[{}] Mocked address: {} for {} [{}] (class_hash: {})",
-                                     test_name,
-                                     address,
-                                     contract_name,
-                                     instance_name,
-                                     class_hash);
+                            if show_mock {
+                                println!("\n[{}]\n{} [{}] mocked at {}\nclass_hash: {}",
+                                         format!("{}", test_name.bright_yellow()),
+                                         format!("{}", contract_name.bright_cyan()),
+                                         format!("{}", instance_name.bright_black()),
+                                         format!("{}", address.bright_purple()),
+                                         format!("{}", class_hash.to_string().bright_black()));
+                            }
 
                             state.contract_address_set(address_from_string(address), class_hash.clone());
                         }

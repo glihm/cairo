@@ -56,6 +56,7 @@ pub struct TestRunner {
     pub ignored: bool,
     pub starknet: bool,
     pub mocked_addresses: HashMap<String, MockConfig>,
+    pub show_mock: bool,
 }
 
 impl TestRunner {
@@ -76,6 +77,7 @@ impl TestRunner {
         ignored: bool,
         starknet: bool,
         libs: &mut HashMap<String, PathBuf>,
+        show_mock: bool,
     ) -> Result<Self> {
         let db = &mut {
             let mut b = RootDatabase::builder();
@@ -107,7 +109,8 @@ impl TestRunner {
             include_ignored,
             ignored,
             starknet,
-            mocked_addresses
+            mocked_addresses,
+            show_mock,
         })
     }
 
@@ -186,7 +189,7 @@ impl TestRunner {
         let contracts_info = get_contracts_info(db, self.main_crate_ids.clone(), &replacer)?;
 
         let TestsSummary { passed, failed, ignored, failed_run_results } =
-            run_tests(named_tests, sierra_program, function_set_costs, contracts_info, &self.mocked_addresses)?;
+            run_tests(named_tests, sierra_program, function_set_costs, contracts_info, &self.mocked_addresses, self.show_mock)?;
         if failed.is_empty() {
             println!(
                 "test result: {}. {} passed; {} failed; {} ignored; {filtered_out} filtered out;",
@@ -250,6 +253,7 @@ fn run_tests(
     function_set_costs: OrderedHashMap<FunctionId, OrderedHashMap<CostTokenType, i32>>,
     contracts_info: HashMap<Felt252, ContractInfo>,
     mocked_addresses: &HashMap<String, MockConfig>,
+    show_mock: bool,
 ) -> anyhow::Result<TestsSummary> {
 
     // println!("CONTRACTS INFOS!\n");
@@ -287,6 +291,7 @@ fn run_tests(
                 mocked_addresses,
                 &contracts_info,
                 ".caironet.json",
+                show_mock,
             )?;
 
             mock::starknet_add_mocked_addresses(
@@ -294,6 +299,7 @@ fn run_tests(
                 &test.caironet,
                 &contracts_info,
                 &name,
+                show_mock,
             )?;
 
             let result = runner

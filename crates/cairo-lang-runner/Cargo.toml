@@ -34,6 +34,7 @@ num-integer.workspace = true
 num-traits.workspace = true
 salsa.workspace = true
 thiserror.workspace = true
+colored.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true

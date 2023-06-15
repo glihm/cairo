@@ -31,6 +31,9 @@ struct Args {
     /// Additional libraries paths to add to the project.
     #[arg(long, num_args = 0..)]
     plibs: Vec<String>,
+    /// Should the mocked addresses being displayed on terminal output.
+    #[arg(long, default_value_t = false)]
+    show_mock: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -55,6 +58,7 @@ fn main() -> anyhow::Result<()> {
         args.ignored,
         args.starknet,
         &mut libs,
+        args.show_mock,
     )?;
 
     runner.run()?;

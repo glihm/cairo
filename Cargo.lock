@@ -594,6 +594,7 @@ dependencies = [
  "cairo-lang-utils",
  "cairo-vm",
  "clap",
+ "colored",
  "itertools",
  "keccak",
  "num-bigint",

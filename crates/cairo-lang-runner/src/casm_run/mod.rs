@@ -2,6 +2,8 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::ops::{Deref, Shl};
 
+use colored::Colorize;
+
 use ark_ff::fields::{Fp256, MontBackend, MontConfig};
 use ark_ff::{Field, PrimeField};
 use ark_std::UniformRand;
@@ -592,10 +594,15 @@ impl HintProcessor for CairoHintProcessor<'_> {
                         let Some(class_hash) =
                             self.starknet_state.deployed_contracts.get(&contract_address) else
                         {
-                            println!("\n*****\n");
-                            println!("No contract deployed at the address {:?}, but a call contract syscall was made.", &contract_address);
-                            println!("Ensure that your contract address is defined in .caironet.json file or with #[caironet(MyContract: {:?})] macro.", &contract_address);
-                            println!("\n*****\n");
+                            println!("\n{} targetting address {}, but a call contract syscall was made.",
+                                     "No contract deployed".bright_red(),
+                                     format!("{}", &contract_address.to_string().bright_red()));
+                            let macro_hint = format!("#[caironet(MyContract: {})]", &contract_address.to_string());
+                            println!("Ensure that your contract address is defined in {} or with {} on your test function.\n",
+                                     ".caironet.json".bright_yellow(),
+                                     macro_hint.bright_green(),
+                            );
+
                             fail_syscall!(b"CONTRACT_NOT_DEPLOYED");
                         };
 
