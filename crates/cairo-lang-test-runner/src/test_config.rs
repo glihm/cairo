@@ -6,7 +6,6 @@ use cairo_lang_syntax::attribute::structured::{Attribute, AttributeArg, Attribut
 use cairo_lang_syntax::node::ast;
 use cairo_lang_syntax::node::db::SyntaxGroup;
 use cairo_lang_utils::OptionHelper;
-use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
 use crate::mock::MockConfig;
@@ -121,7 +120,7 @@ pub fn try_extract_test_config(
     };
 
     let caironet = if let Some(attr) = caironet_attr {
-        extract_caironet_mappings(db, attr)
+        extract_caironet_mocks(db, attr)
     } else {
         HashMap::new()
     };
@@ -179,22 +178,24 @@ fn extract_panic_values(db: &dyn SyntaxGroup, attr: &Attribute) -> Option<Vec<Fe
         .collect::<Option<Vec<_>>>()
 }
 
-/// Tries to extract mappings for caironet.
+/// Tries to extract mocks mappings for caironet.
 /// Mappings are expected to be named attributes: #[caironet(contract1: 0x1234, contract2: 1888)].
 /// Only literal are supported at it's an address.
-fn extract_caironet_mappings(
+fn extract_caironet_mocks(
     db: &dyn SyntaxGroup,
     attr: &Attribute
 ) -> HashMap<String, MockConfig> {
 
-    let mut mappings: HashMap<String, MockConfig> = HashMap::new();
+    let mut mocks: HashMap<String, MockConfig> = HashMap::new();
+
+    let mut mappings_instances: HashMap<String, HashMap<String, String>> = HashMap::new();
 
     attr.args.iter().for_each(|a| {
         match &a.variant {
             AttributeArgVariant::Named { name, value, .. } => {
                 let contract_name = name.to_string();
-                let contract_instance: Option<String>;
-                let contract_address: Option<String>;
+                let mut contract_instance: Option<String> = None;
+                let mut contract_address: Option<String> = None;
 
                 match value {
                     ast::Expr::Literal(literal) => {
@@ -203,76 +204,65 @@ fn extract_caironet_mappings(
                             .unwrap_or_default()
                             .to_string());
                     },
-                    // TODO: For now, don't support instances addresses.
-                    //       add support to be able to do:
-                    //       #[caironet(contract1: (0x1234, 'ERC20'))]
-                    // ast::Expr::Tuple(vals) => {
-                    //     vals.expressions(db)
-                    //         .elements(db)
-                    //         .into_iter()
-                    //         .for_each(|value| match value {
-                    //             ast::Expr::Literal(literal) => {
-                    //                 contract_address = Some(
-                    //                     literal
-                    //                         .numeric_value(db)
-                    //                         .unwrap_or_default()
-                    //                         .to_string());
-                    //             }
-                    //             ast::Expr::ShortString(literal) => {
-                    //                 contract_instance = Some(
-                    //                     literal
-                    //                         .numeric_value(db)
-                    //                         .unwrap_or_default()
-                    //                         .to_string());
-                    //             }
-                    //             _ => (),
-                    //         });
-                    // }
+                    ast::Expr::Tuple(vals) => {
+                        vals.expressions(db)
+                            .elements(db)
+                            .into_iter()
+                            .for_each(|value| match value {
+                                ast::Expr::Literal(literal) => {
+                                    contract_address = Some(
+                                        literal.numeric_value(db).unwrap_or_default().to_string());
+                                }
+                                ast::Expr::ShortString(literal) => {
+                                    contract_instance = Some(
+                                        literal.numeric_value(db).unwrap_or_default().to_string());
+                                }
+                                _ => (),
+                            });
+                    }
                     _ => return ()
                 };
 
-                if contract_address.is_none() {
-                    // No proper address found, skip.
-                    println!("No address found for contract {:?}", contract_name);
-                    continue;
-                }
-
-                if let Some(i) = contract_instance {
-                    // If the contract name already exists, just append.
-                };
-                let mock = match contract_instance {
-                    None => MockConfig::SingletonAddress(contract_address),
-                    Some(i) => MockConfig::SingletonAddress(contract_address)
-                };
-
-                // If contract addr + contract_instance -> need to check
-                // if the contract name already exists...
-
-                if let Some(contract_address) = contract_address {
-
-                    // Check if contract name already exist. If yes -> need
-                    // to check if it's an instances or singleton...!
-
-                    match contract_instance {
-                        Some(i) => {
-                            mappings.insert(
-                                contract_name,
-                                MockConfig::(contract_address));
-                        },
-                        None => {
-                            mappings.insert(
-                                contract_name,
-                                MockConfig::SingletonAddress(contract_address));
-                        }
+                // Literal or Tuple, an address is expected in any cases.
+                // The contract address is always a literal.
+                let contract_address = match contract_address {
+                    Some(addr) => addr,
+                    None => {
+                        // println!("No address found for contract {:?}", contract_name);
+                        return ();
                     }
+                };
 
-                }
-
+                match contract_instance {
+                    Some(i) => {
+                        // Keep the mapping to later construct the InstancesAddress.
+                        if mappings_instances.contains_key(&contract_name) {
+                            mappings_instances
+                                .get_mut(&contract_name)
+                                .expect("HashMap of instance mappings not init")
+                                .insert(i, contract_address);
+                        } else {
+                            let mut h = HashMap::new();
+                            h.insert(i, contract_address);
+                            mappings_instances.insert(contract_name, h);
+                        }
+                    },
+                    None => {
+                        // Directly register the singleton.
+                        mocks.insert(contract_name, MockConfig::SingletonAddress(contract_address));
+                        return ();
+                    }
+                };
             },
             _ => ()
         }
     });
 
-    println!("MAPPINGS FROM ATTR {:?}", mappings);
-    mappings
+    for (contract_name, instances) in mappings_instances {
+        let mock = MockConfig::InstanceAddresses(instances);
+        mocks.insert(contract_name, mock);
+    }
+
+    //println!("MOCKS FROM ATTR {:?}", mocks);
+    mocks
 }

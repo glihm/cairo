@@ -101,13 +101,15 @@ pub fn starknet_add_mocked_addresses(
     state: &mut StarknetState,
     mocked_addresses: &HashMap<String, MockConfig>,
     contracts_info: &HashMap<Felt252, ContractInfo>,
+    test_name: &str,
 ) -> anyhow::Result<StarknetState> {
     for (class_hash, info) in contracts_info {
         if let Some(contract_name) = contract_name_from_info(info) {
             if let Some(mocked_addr) = mocked_addresses.get(contract_name) {
                 match mocked_addr {
                     MockConfig::SingletonAddress(address) => {
-                        println!("Mocked address: {} for {} (class_hash: {})",
+                        println!("[{}] Mocked address: {} for {} (class_hash: {})",
+                                 test_name,
                                  address,
                                  contract_name,
                                  class_hash);
@@ -116,7 +118,8 @@ pub fn starknet_add_mocked_addresses(
                     },
                     MockConfig::InstanceAddresses(addresses) => {
                         for (instance_name, address) in addresses {
-                            println!("Mocked address: {} for {} [{}] (class_hash: {})",
+                            println!("[{}] Mocked address: {} for {} [{}] (class_hash: {})",
+                                     test_name,
                                      address,
                                      contract_name,
                                      instance_name,

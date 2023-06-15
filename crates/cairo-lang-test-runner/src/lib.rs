@@ -257,13 +257,6 @@ fn run_tests(
     //     println!("class_hash: {:?}, contract_info: {:?}", class_hash, info);
     // }
 
-    let mut starknet_state_mocked = Default::default();
-    mock::starknet_add_mocked_addresses(
-        &mut starknet_state_mocked,
-        mocked_addresses,
-        &contracts_info
-    )?;
-
     let runner = SierraCasmRunner::new(
         sierra_program,
         Some(MetadataComputationConfig { function_set_costs }),
@@ -278,7 +271,6 @@ fn run_tests(
         failed_run_results: vec![],
     }));
 
-    let state_mutex = Mutex::new(starknet_state_mocked.clone());
     named_tests
         .into_par_iter()
         .map(|(name, test)| -> anyhow::Result<(String, TestStatus)> {
@@ -286,11 +278,22 @@ fn run_tests(
                 return Ok((name, TestStatus::Ignore));
             }
 
-            let mut state = state_mutex.lock().unwrap();
+            // New state for each test.
+            // The mocked addresses found in the JSON are always
+            // inserted.
+            let mut starknet_state_mocked = Default::default();
             mock::starknet_add_mocked_addresses(
-                &mut state,
+                &mut starknet_state_mocked,
+                mocked_addresses,
+                &contracts_info,
+                ".caironet.json",
+            )?;
+
+            mock::starknet_add_mocked_addresses(
+                &mut starknet_state_mocked,
                 &test.caironet,
-                &contracts_info
+                &contracts_info,
+                &name,
             )?;
 
             let result = runner
@@ -298,7 +301,7 @@ fn run_tests(
                     runner.find_function(name.as_str())?,
                     &[],
                     test.available_gas,
-                    starknet_state_mocked.clone(),
+                    starknet_state_mocked,
                 )
                 .with_context(|| format!("Failed to run the function `{}`.", name.as_str()))?;
             Ok((
