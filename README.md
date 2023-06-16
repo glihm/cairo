@@ -31,7 +31,18 @@ for a way to easily do integration testing with only built-in features of the co
 
 ## TLDR;
 
+1. Add this to your `Scarb.toml` file (a caironetup script coming soon for those who doesn't want to use docker):
+```toml
+[scripts]
+test-caironet = "sudo docker run --rm -v $(pwd):/project -t --entrypoint cairo-test glihm/caironet:1.1.0-d --starknet /project/"
+```
+2. Add at the root of your project a directory `tests` for integration testing.
+3. Add a file `lib.cairo` and paste the content below.
+4. Run `scarb run test-caironet --show-mock`
+
 ```rust
+// mypackage/tests/lib.cairo
+
 // A minimum contract implementation with a view to be called.
 #[contract]
 mod Cmin {
