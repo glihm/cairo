@@ -10,13 +10,15 @@ effective development of starknet contracts written in cairo.
 `caironet` aims at being very simple and so thin, that it's easy
 and quick to get started with cairo contracts testing mocking the deployment.
 
-Only add the configuration file and use regular cairo testing features.
-
 ## What caironet is
 
 It's a fork from [Starkware cairo repo](https://github.com/starkware-libs/cairo),
 having a little modification on the test runner to have the `cairo-test`
-being able to honor a `call` between contracts mocking their addresses.
+being able to honor a `call_contract syscall`.
+
+It's different from protostar, which is a more featured tool that also proposes integration testing.
+The difference is that, with caironet you can easily choose the addresses, and you only use built-ins from
+the compiler. Protostar has more advanced tooling with specific methods to managed `declare/deploy/etc...`.
 
 It's not a devnet.  
 It's not a testnet.  
@@ -25,9 +27,90 @@ It's not a testnet.
 Amazing devs in the ecosystem (for example Software mansion with protostar and SpaceShard with the starknet-devnet) are proposing more advanced tooling.
 
 But as the time of this writting, those tools are still under active development and I was looking
-for a way to easily do integration testing with only `cairo-test` features.
+for a way to easily do integration testing with only built-in features of the compiler.
+
+## TLDR;
+
+```rust
+// A minimum contract implementation with a view to be called.
+#[contract]
+mod Cmin {
+    struct Storage {
+        val_: felt252,
+    }
+
+    // Init the contract with a value inside the storage.
+    #[constructor]
+    fn constructor(val: felt252) {
+        val_::write(val);
+    }
+
+    // Queries the value inside the storage.
+    #[view]
+    fn get_val() -> felt252 {
+        val_::read()
+    }
+}
+
+// Defines an ABI to generate a Dispatcher
+// which encapsulate a call_contract syscall.
+#[abi]
+trait ICmin {
+    #[view]
+    fn get_val() -> felt252;
+}
+
+#[test]
+#[available_gas(2000000)]
+#[caironet(Cmin: 1122)]
+fn test_call() {
+
+    // The #[caironet..] attribute ensure that the class hash of Cmin
+    // contract is mapped to the address 1122.
+
+    // To "deploy", we need an address and call the constructor.
+    // we set the contract address to ensure the storage we use
+    // is the one corresponding to the address 1122.
+    let cmin_addr = starknet::contract_address_const::<1122>();
+    starknet::testing::set_contract_address(cmin_addr);
+    Cmin::constructor(123456789);
+
+    // Use the call_contract syscall encapsulated into the dispatcher.
+    let dispatcher = ICminDispatcher { contract_address: cmin_addr };
+    let res = dispatcher.get_val();
+
+    assert(res == 123456789, 'get_val failed');
+}
+```
+
+In the example above, you can see caironet in action.
+In this example, the `call_contract` is done in the test function.
+But you can imagine a contract calling an other contract. Refer to the following
+sections for more examples.
 
 ## Configuration
+
+To mock addresses, you have two choices:
+
+### Local mocking
+
+In the `cairo-test` runner, every test runs in a new state. Which means that
+any contract storage for instance is reset (even if you use the same address).
+
+To only mock an address for a test, you can do the following:
+
+```rust
+#[test]                                                                                                                                                                                       
+#[available_gas(2000000)]
+#[caironet(Contract1: 0x123, Contract2: 7788)]
+fn test_1() {
+    ...
+}
+```
+
+With this syntax, the mocking will only be effective for the scope of `test_1` function.
+
+### Global mocking
 
 The configuration is a simple `JSON` file named `.caironet.json`.  
 This file contains the mocked addresses and must be placed at the root of the `cairo/scarb project`.
@@ -44,11 +127,10 @@ Example:
 
 ```
 
+Any mapping here is global, an injected in all your tests.
+
 The most important requirement is that, the first level keys are always the
 exact name of your contracts. The case **MUST** be respected.
-
-For example, in the `test/caironet/src` directory, you can find `Contract1` and `Contract2`
-contracts with this exact case.
 
 If you need several addresses for the same contract class (which is usually the case
 for instance when using ERC721 and ERC20), you can use the same structure as
@@ -64,11 +146,6 @@ Hexadecimal string **MUST BE PREFIXED** with `0x`.
 
 When the runner starts, it will output the mocked addresses and corresponding class hashes:
 
-```
-Mocked address: 0x1234 for Contract1 [DOE] (class_hash: 1674043218147484320489166460321444344881925232388472483217999049795709544553)
-Mocked address: 1010 for Contract1 [JOHN] (class_hash: 1674043218147484320489166460321444344881925232388472483217999049795709544553)
-```
-
 ## Examples
 
 You can find a complete working example in the `tests/caironet` directory [here](https://github.com/glihm/cairo/blob/1.1.0/tests/caironet/tests/test_1.cairo).  
@@ -79,6 +156,12 @@ To test run the tests of this repo:
 ```bash
 cd tests/caironet
 scarb run test-caironet
+
+// To show the mocking output, add the argument --show-mock.
+scarb run test-caironet --show-mock
+
+// If you only want to run tests with specific names, use the --filter option.
+scarb run test-caironet --filter test_erc721_call
 ```
 
 One of two most important functions when testing a contract are:
@@ -102,9 +185,9 @@ Example of `Scarb.toml` file using the [docker image from docker hub](https://hu
 
 ```toml
 [scripts]
-test-caironet = "sudo docker run --rm -v $(pwd):/project -t --entrypoint cairo-test glihm/caironet:1.1.0-b --starknet /project/"
+test-caironet = "sudo docker run --rm -v $(pwd):/project -t --entrypoint cairo-test glihm/caironet:1.1.0-d --starknet /project/"
 ```
-The docker tag is always the cairo-compile version (`1.1.0` in this example), with an incremental version of `caironet` (`b` in this example).
+The docker tag is always the cairo-compile version (`1.1.0` in this example), with an incremental version of `caironet` (`d` in this example).
 Consider to always run `cairo-test` with `--starknet` plugin.
 
 To compile locally, use `cargo build --package cairo-lang-test-runner --release`
