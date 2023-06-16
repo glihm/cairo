@@ -259,8 +259,11 @@ Finally, `caironet` was designed this way because populating the `StarknetState`
 The focus of `caironet` is to keep testing simple, with no changes compared
 to the original `cairo-lang` testing features for the `starknet` plugin found [here](https://github.com/starkware-libs/cairo/blob/c4dcdf689840313e27f6305ba89d489169a68348/corelib/src/starknet/testing.cairo).
 
-Also, scarb is planning to integrate the `cairo_project.toml` which is used by the
-compiler to locate crates. Caironet will adapt to thoses changes.
+Scarb as now removed the `cairo_project.toml` file. This means that, Scarb is assuming
+your package is under `src` folder, and integration tests are under `tests`. I have to check
+but I am not sure that scarb allows to override tests location.
+
+Just consider having all your integration tests under `tests` folder for now. :)
 
 ## Disclaimer
 
