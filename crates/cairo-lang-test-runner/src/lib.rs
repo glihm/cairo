@@ -275,12 +275,16 @@ fn run_tests(
         failed_run_results: vec![],
     }));
 
+    let is_first = Mutex::new(true);
+
     named_tests
         .into_par_iter()
         .map(|(name, test)| -> anyhow::Result<(String, TestStatus)> {
             if test.ignored {
                 return Ok((name, TestStatus::Ignore));
             }
+
+            let mut is_first_m = is_first.lock().expect("can't acquire mutex is_first");
 
             // New state for each test.
             // The mocked addresses found in the JSON are always
@@ -291,8 +295,10 @@ fn run_tests(
                 mocked_addresses,
                 &contracts_info,
                 ".caironet.json",
-                show_mock,
+                show_mock && *is_first_m,
             )?;
+
+            *is_first_m = false;
 
             mock::starknet_add_mocked_addresses(
                 &mut starknet_state_mocked,

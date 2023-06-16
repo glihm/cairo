@@ -6,7 +6,7 @@ version = "0.1.0"
 starknet = ">=1.1.0"
 
 [scripts]
-test-caironet = "sudo docker run --rm -v $(pwd):/project -t --entrypoint cairo-test glihm/caironet:1.1.0-b --starknet /project/"
+test-caironet = "sudo docker run --rm -v $(pwd):/project -t --entrypoint cairo-test glihm/caironet:1.1.0-d --starknet /project/"
 test-caironet-local = "../../target/release/cairo-test --starknet ."
 
 [[target.starknet-contract]]
